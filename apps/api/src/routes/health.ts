@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../index.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
+import { isSafeModeActive } from '../lib/safeMode.js';
 
 const router = Router();
 
@@ -87,9 +88,10 @@ async function checkHealth(tenantId: string): Promise<{ status: 'green' | 'yello
     });
   }
 
-  const safeMode = hasCritical;
+  const globalSafeMode = isSafeModeActive();
+  const safeMode = hasCritical || globalSafeMode.active;
   let status: 'green' | 'yellow' | 'red' = 'green';
-  if (hasCritical) status = 'red';
+  if (hasCritical || globalSafeMode.active) status = 'red';
   else if (hasWarning) status = 'yellow';
 
   return { status, issues, safeMode };

@@ -41,7 +41,7 @@ router.get('/summary', requireRole('owner', 'admin', 'staff', 'viewer'), async (
         tenantId: req.tenantId!,
         createdAt: { gte: today }
       },
-      _sum: { promptTokens: true, completionTokens: true },
+      _sum: { inputTokens: true, outputTokens: true },
       _count: true
     });
 
@@ -64,7 +64,7 @@ router.get('/summary', requireRole('owner', 'admin', 'staff', 'viewer'), async (
         requestsToday,
         failedActionsToday: failedActions,
         aiRequestsToday: aiUsageToday._count || 0,
-        aiTokensToday: (aiUsageToday._sum.promptTokens || 0) + (aiUsageToday._sum.completionTokens || 0)
+        aiTokensToday: (aiUsageToday._sum.inputTokens || 0) + (aiUsageToday._sum.outputTokens || 0)
       },
       period: 'today',
       generatedAt: new Date().toISOString()

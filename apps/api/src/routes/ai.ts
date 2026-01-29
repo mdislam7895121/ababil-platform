@@ -4,6 +4,7 @@ import { prisma } from '../index.js';
 import { aiChatSchema, PLAN_QUOTAS, type Plan } from '../../../../packages/shared/src/index.js';
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest } from '../middleware/auth.js';
+import { isSafeModeActive } from '../lib/safeMode.js';
 
 const router = Router();
 
@@ -52,6 +53,16 @@ function getCacheKey(message: string): string {
 // Chat endpoint
 router.post('/chat', async (req: AuthRequest, res) => {
   try {
+    // Check Safe Mode - block AI when critical config missing
+    const safeMode = isSafeModeActive();
+    if (safeMode.active) {
+      return res.status(503).json({
+        error: 'AI is disabled in Safe Mode. Critical configuration is missing.',
+        safeMode: true,
+        reasons: safeMode.reasons
+      });
+    }
+
     // Check if AI module is enabled
     const aiEnabled = await isAiEnabled(req.tenantId!);
     if (!aiEnabled) {
