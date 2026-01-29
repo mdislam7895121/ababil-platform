@@ -300,9 +300,46 @@ router.post('/go-live', requireRole('owner', 'admin'), async (req: AuthRequest, 
       return res.status(400).json({ error: 'Please run a successful verification first' });
     }
 
-    await prisma.deployConfig.update({
-      where: { tenantId: req.tenantId! },
-      data: { status: 'live' }
+    const subscription = await prisma.subscription.findUnique({
+      where: { tenantId: req.tenantId! }
+    });
+
+    if (!subscription || subscription.status !== 'active') {
+      return res.status(402).json({
+        error: 'Subscription required',
+        code: 'SUBSCRIPTION_REQUIRED',
+        message: 'Go Live requires an active subscription. Subscribe to Pro ($39/mo) or Business ($99/mo) to unlock.',
+        guidance: 'Please subscribe to a paid plan to go live with your platform.'
+      });
+    }
+
+    if (subscription.liveAppsUsed >= subscription.liveAppsLimit) {
+      return res.status(402).json({
+        error: 'Live app limit reached',
+        code: 'LIMIT_REACHED',
+        message: `Your ${subscription.plan} plan allows ${subscription.liveAppsLimit} live app(s). Upgrade to Business for more.`,
+        guidance: 'Upgrade your subscription to add more live apps.'
+      });
+    }
+
+    await prisma.$transaction([
+      prisma.deployConfig.update({
+        where: { tenantId: req.tenantId! },
+        data: { status: 'live' }
+      }),
+      prisma.subscription.update({
+        where: { tenantId: req.tenantId! },
+        data: { liveAppsUsed: { increment: 1 } }
+      })
+    ]);
+
+    await logAudit({
+      tenantId: req.tenantId!,
+      actorUserId: req.userId,
+      action: 'GO_LIVE_UNLOCKED',
+      entityType: 'tenant',
+      entityId: req.tenantId,
+      metadata: { appUrl: config.appUrl, plan: subscription.plan }
     });
 
     await logAudit({

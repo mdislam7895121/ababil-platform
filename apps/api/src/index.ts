@@ -58,6 +58,7 @@ import { healthRoutes } from './routes/health.js';
 import { preflightRoutes } from './routes/preflight.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { onboardingRoutes } from './routes/onboarding.js';
+import { billingRoutes, billingWebhookRouter } from './routes/billing.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 
@@ -124,6 +125,10 @@ app.use('/api/health/status', apiLimiter, authMiddleware, tenantMiddleware, heal
 app.use('/api/deploy/preflight', apiLimiter, authMiddleware, tenantMiddleware, preflightRoutes);
 app.use('/api/analytics', apiLimiter, authMiddleware, tenantMiddleware, analyticsRoutes);
 app.use('/api/onboarding', apiLimiter, authMiddleware, tenantMiddleware, onboardingRoutes);
+app.use('/api/billing', apiLimiter, authMiddleware, tenantMiddleware, billingRoutes);
+
+// Stripe webhook (needs raw body, so mount before json parser would conflict)
+app.use('/api/billing', billingWebhookRouter);
 
 // Error handler with human-friendly messages
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
