@@ -448,3 +448,17 @@ model ResellerStatement {
   @@unique([resellerId, periodStart])
   @@map("reseller_statements")
 }
+
+model JobRun {
+  id        String   @id @default(uuid())
+  name      String
+  status    String   // success|failed
+  startedAt DateTime @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  details   Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([name])
+  @@index([createdAt])
+  @@map("job_runs")
+}

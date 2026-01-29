@@ -65,8 +65,10 @@ import { paymentsRoutes } from './routes/payments.js';
 import { invoicesRoutes } from './routes/invoices.js';
 import i18nRoutes from './routes/i18n.js';
 import resellersRoutes from './routes/resellers.js';
+import jobsRoutes from './routes/jobs.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
+import { startScheduler } from './jobs/index.js';
 
 export const prisma = new PrismaClient();
 
@@ -200,6 +202,7 @@ app.use('/api/revenue', apiLimiter, authMiddleware, tenantMiddleware, revenueRou
 app.use('/api/payments', apiLimiter, authMiddleware, tenantMiddleware, paymentsRoutes);
 app.use('/api/invoices', apiLimiter, authMiddleware, tenantMiddleware, invoicesRoutes);
 app.use('/api/resellers', apiLimiter, authMiddleware, tenantMiddleware, resellersRoutes);
+app.use('/api/jobs', apiLimiter, authMiddleware, tenantMiddleware, jobsRoutes);
 
 // Error handler with human-friendly messages
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -225,4 +228,7 @@ app.use('/', createProxyMiddleware({
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API server running on port ${PORT}`);
   console.log(`Proxying non-API routes to ${NEXT_JS_URL}`);
+  
+  // Start the job scheduler
+  startScheduler();
 });
