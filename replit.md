@@ -187,3 +187,52 @@ Default test credentials:
 - **Pre-Flight Check**: Step 5 runs deployment readiness checks before allowing verification
 - **Go-Live Flow**: Step 6 shows Go-Live button after successful verification; status transitions: pending → verified → live
 - **API**: `/api/deploy/go-live` - Marks tenant as LIVE after successful verification run
+
+## White-Label + Reseller Mode
+
+### Overview
+Third-party resellers can white-label the platform with their own branding and earn commissions from customer subscriptions. Each reseller gets:
+- Custom branding (logo, colors, "Powered By" badge control)
+- Domain mapping (custom domain or subdomain)
+- Commission tracking (percentage or fixed amount)
+- Customer management dashboard
+- Monthly earning statements
+
+### Database Models
+- **Reseller**: id, name, slug, ownerUserId, logoUrl, primaryColor, secondaryColor, domain, subdomain, showPoweredBy, commissionType, commissionValue, status
+- **ResellerStatement**: Monthly earning statements with period, totalRevenue, commission, invoiceCount
+- **Invoice**: Extended with resellerId, resellerCommission, platformRevenue for revenue split tracking
+- **Tenant**: Extended with resellerId for customer assignment
+
+### API Endpoints
+- `GET /api/resellers` - List all resellers (admin only)
+- `POST /api/resellers` - Create new reseller (admin only)
+- `GET /api/resellers/my` - Get current user's reseller dashboard
+- `GET /api/resellers/:id` - Get specific reseller details
+- `PATCH /api/resellers/:id` - Update reseller settings
+- `PATCH /api/resellers/:id/branding` - Update branding only
+- `GET /api/resellers/:id/customers` - List reseller's customers
+- `GET /api/resellers/:id/earnings` - Get earnings summary
+- `GET /api/resellers/:id/statements` - Get monthly statements
+- `POST /api/resellers/:id/statements/generate` - Generate monthly statement
+- `GET /api/resellers/platform/summary` - Platform-wide reseller metrics (admin)
+- `GET /api/resellers/branding/lookup` - Public endpoint for domain-based branding lookup
+
+### Frontend Pages
+- `/dashboard/reseller` - Reseller's dashboard with customers, earnings, branding preview
+- `/dashboard/reseller/branding` - Branding settings (logo, colors, powered-by toggle)
+- `/dashboard/resellers` - Platform admin page to manage all resellers
+
+### White-Label Detection
+The branding context (`apps/web/src/lib/branding/context.tsx`) auto-detects white-label mode:
+1. Custom domain lookup (e.g., platform.acme.com)
+2. Subdomain lookup (e.g., acme.platformfactory.app)
+3. Referral slug parameter (e.g., ?ref=acme-solutions)
+When detected, CSS variables are dynamically updated to apply reseller's brand colors.
+
+### Commission Calculation
+```typescript
+// Percentage-based: 20% of $100 = $20 commission
+// Fixed-based: min(fixedAmount, invoiceAmount)
+calculateCommission(amount, commissionType, commissionValue) → { commission, platformRevenue }
+```

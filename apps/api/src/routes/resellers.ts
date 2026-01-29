@@ -134,7 +134,7 @@ router.get("/branding/lookup", async (req: AuthRequest, res: Response) => {
     let reseller = null;
 
     if (domain) {
-      reseller = await prisma.reseller.findUnique({
+      reseller = await prisma.reseller.findFirst({
         where: { domain: domain as string, status: "active" },
         select: {
           id: true,
@@ -149,7 +149,7 @@ router.get("/branding/lookup", async (req: AuthRequest, res: Response) => {
     }
 
     if (!reseller && subdomain) {
-      reseller = await prisma.reseller.findUnique({
+      reseller = await prisma.reseller.findFirst({
         where: { subdomain: subdomain as string, status: "active" },
         select: {
           id: true,
@@ -164,7 +164,7 @@ router.get("/branding/lookup", async (req: AuthRequest, res: Response) => {
     }
 
     if (!reseller && slug) {
-      reseller = await prisma.reseller.findUnique({
+      reseller = await prisma.reseller.findFirst({
         where: { slug: slug as string, status: "active" },
         select: {
           id: true,
