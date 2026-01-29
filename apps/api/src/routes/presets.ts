@@ -188,4 +188,86 @@ router.get('/:templateKey/:presetKey', requireRole('owner', 'admin', 'staff', 'v
   }
 });
 
+router.post('/apply', requireRole('owner', 'admin'), async (req: AuthRequest, res) => {
+  try {
+    const { templateKey, presetKey } = req.body;
+    
+    if (!templateKey || !presetKey) {
+      return res.status(400).json({ error: 'templateKey and presetKey are required' });
+    }
+
+    const templatePresets = BUILT_IN_PRESETS[templateKey as keyof typeof BUILT_IN_PRESETS];
+    if (!templatePresets) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    const preset = templatePresets.find(p => p.presetKey === presetKey);
+    if (!preset) {
+      return res.status(404).json({ error: 'Preset not found' });
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.tenantId! },
+      select: { settings: true }
+    });
+    
+    const currentSettings = (tenant?.settings || {}) as Record<string, unknown>;
+    
+    await prisma.tenant.update({
+      where: { id: req.tenantId! },
+      data: {
+        settings: {
+          ...currentSettings,
+          appliedPreset: {
+            templateKey,
+            presetKey,
+            presetName: preset.name,
+            appliedAt: new Date().toISOString()
+          }
+        }
+      }
+    });
+
+    res.json({ 
+      ok: true, 
+      applied: {
+        templateKey,
+        presetKey,
+        presetName: preset.name,
+        configJson: preset.configJson
+      }
+    });
+  } catch (error) {
+    console.error('Apply preset error:', error);
+    res.status(500).json({ error: 'Failed to apply preset' });
+  }
+});
+
+router.get('/applied', requireRole('owner', 'admin', 'staff', 'viewer'), async (req: AuthRequest, res) => {
+  try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.tenantId! },
+      select: { settings: true }
+    });
+
+    const settings = tenant?.settings as { appliedPreset?: { templateKey: string; presetKey: string; presetName: string; appliedAt: string } } | null;
+    
+    if (!settings?.appliedPreset) {
+      return res.json({ applied: null });
+    }
+
+    const { templateKey, presetKey } = settings.appliedPreset;
+    const templatePresets = BUILT_IN_PRESETS[templateKey as keyof typeof BUILT_IN_PRESETS];
+    const preset = templatePresets?.find(p => p.presetKey === presetKey);
+
+    res.json({ 
+      applied: settings.appliedPreset,
+      configJson: preset?.configJson || null
+    });
+  } catch (error) {
+    console.error('Get applied preset error:', error);
+    res.status(500).json({ error: 'Failed to get applied preset' });
+  }
+});
+
 export { router as presetsRoutes };

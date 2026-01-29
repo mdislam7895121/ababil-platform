@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { DashboardLayout } from "@/components/dashboard-layout";
@@ -19,7 +19,19 @@ import {
   Play,
   FileText,
   Clock,
+  Building,
 } from "lucide-react";
+
+interface IndustryPreset {
+  presetKey: string;
+  name: string;
+  description: string;
+  configJson: {
+    workflowLabels: Record<string, string>;
+    sampleData: Record<string, any>;
+    dashboardWidgets: Record<string, any>;
+  };
+}
 
 interface Blueprint {
   templateKey: string;
@@ -78,6 +90,8 @@ export default function BuilderPage() {
   const [prompt, setPrompt] = useState("");
   const [currentDraft, setCurrentDraft] = useState<DraftResponse | null>(null);
   const [buildResult, setBuildResult] = useState<BuildOutput | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<IndustryPreset | null>(null);
+  const [presets, setPresets] = useState<IndustryPreset[]>([]);
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -108,13 +122,23 @@ export default function BuilderPage() {
       }
       return res.json() as Promise<DraftResponse>;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setCurrentDraft(data);
       toast({
         title: "Blueprint Generated",
         description: `Template: ${data.blueprint.templateName}`,
       });
       queryClient.invalidateQueries({ queryKey: ["builder-requests"] });
+      
+      try {
+        const res = await fetch(`/api/presets?template=${data.blueprint.templateKey}`, { headers });
+        if (res.ok) {
+          const json = await res.json();
+          setPresets(json.presets || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch presets:", err);
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -307,6 +331,40 @@ export default function BuilderPage() {
                 </div>
               </div>
 
+              {presets.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    <Building className="h-4 w-4" />
+                    Choose Industry Preset
+                  </h3>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {presets.map((preset) => (
+                      <button
+                        key={preset.presetKey}
+                        onClick={() => setSelectedPreset(preset)}
+                        className={`text-left p-4 rounded-lg border transition-colors ${
+                          selectedPreset?.presetKey === preset.presetKey
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                        data-testid={`preset-${preset.presetKey}`}
+                      >
+                        <p className="font-medium">{preset.name}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{preset.description}</p>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedPreset && (
+                    <div className="mt-3 p-3 rounded-lg bg-muted">
+                      <p className="text-sm font-medium">Selected: {selectedPreset.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Customizes labels, sample data, and dashboard for {selectedPreset.name.toLowerCase()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <h3 className="font-semibold mb-2 flex items-center gap-2">
                   <ListChecks className="h-4 w-4" />
@@ -397,18 +455,28 @@ export default function BuilderPage() {
                 </Button>
               </div>
 
-              <Button
-                variant="secondary"
-                className="w-full"
-                onClick={() => {
-                  setCurrentDraft(null);
-                  setBuildResult(null);
-                  setPrompt("");
-                }}
-                data-testid="button-new-build"
-              >
-                Start New Build
-              </Button>
+              <div className="flex gap-2">
+                <Button asChild className="flex-1" data-testid="link-checklist">
+                  <a href="/dashboard/checklist">
+                    <ListChecks className="mr-2 h-4 w-4" />
+                    Go to Checklist
+                  </a>
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => {
+                    setCurrentDraft(null);
+                    setBuildResult(null);
+                    setPrompt("");
+                    setSelectedPreset(null);
+                    setPresets([]);
+                  }}
+                  data-testid="button-new-build"
+                >
+                  Start New Build
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}

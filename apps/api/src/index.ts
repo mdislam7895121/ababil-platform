@@ -17,6 +17,7 @@ import { previewRoutes } from './routes/preview.js';
 import { presetsRoutes } from './routes/presets.js';
 import { costsRoutes } from './routes/costs.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
+import { humanizeError } from './lib/errors.js';
 
 export const prisma = new PrismaClient();
 
@@ -73,10 +74,16 @@ app.use('/api/preview', apiLimiter, authMiddleware, tenantMiddleware, previewRou
 app.use('/api/presets', apiLimiter, authMiddleware, tenantMiddleware, presetsRoutes);
 app.use('/api/costs', apiLimiter, authMiddleware, tenantMiddleware, costsRoutes);
 
-// Error handler
+// Error handler with human-friendly messages
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err.message);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error('Error:', err.message, err.stack);
+  
+  const humanError = humanizeError(err);
+  res.status(500).json({
+    error: humanError.message,
+    code: humanError.code,
+    action: humanError.action
+  });
 });
 
 app.listen(PORT, '0.0.0.0', () => {

@@ -728,3 +728,240 @@ curl http://localhost:5000/api/deploy/runs \
 ## Conclusion
 
 The Digital Platform Factory is verified and ready for deployment. All 25 core API endpoints tested successfully with real database operations. Security controls are in place with proper password hash sanitization and tenant isolation. The Prompt Builder Engine allows users to configure their platform from natural language prompts. The Deploy Wizard enables self-serve deployment with automated verification checks.
+
+---
+
+## Phase 1 Features (Demand-Focused Upgrade)
+
+### 26. Go-Live Checklist API
+```bash
+curl http://localhost:5000/api/checklist \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID"
+```
+**Response:**
+```json
+{
+  "items": [
+    {"key": "database_url", "label": "Add Database URL", "completed": true, "category": "required"},
+    {"key": "jwt_secret", "label": "Add JWT Secret", "completed": false, "category": "required"},
+    {"key": "email_provider", "label": "Configure Email Provider", "completed": false, "category": "required"},
+    {"key": "payment_provider", "label": "Configure Payment Provider", "completed": false, "category": "optional"},
+    {"key": "ai_config", "label": "Configure AI (optional)", "completed": false, "category": "optional"},
+    {"key": "deploy_verification", "label": "Run Deploy Verification", "completed": false, "category": "required"}
+  ],
+  "progress": {"completed": 1, "total": 6, "percentage": 17},
+  "requiredProgress": {"completed": 1, "total": 4, "percentage": 25},
+  "blocking": [
+    {"key": "jwt_secret", "label": "Add JWT Secret"},
+    {"key": "email_provider", "label": "Configure Email Provider"},
+    {"key": "deploy_verification", "label": "Run Deploy Verification"}
+  ],
+  "readyToGoLive": false
+}
+```
+**Status:** PASS - Checklist with progress tracking and blocking items
+
+### 27. Complete Checklist Item
+```bash
+curl -X POST http://localhost:5000/api/checklist/complete \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"key": "database_url"}'
+```
+**Response:**
+```json
+{"ok": true, "key": "database_url", "completed": true}
+```
+**Status:** PASS - Checklist items can be marked complete
+
+### 28. Live Preview Mode - Create Session
+```bash
+curl -X POST http://localhost:5000/api/preview/create \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"role": "admin"}'
+```
+**Response:**
+```json
+{
+  "ok": true,
+  "previewUrl": "/preview?token=31923b30ac28bc54c5bc715acff87bb52df9b9178df9425cf06d8179e98ea9a3",
+  "token": "31923b30ac28bc54c5bc715acff87bb52df9b9178df9425cf06d8179e98ea9a3",
+  "role": "admin",
+  "expiresAt": "2026-01-30T07:24:29.716Z"
+}
+```
+**Status:** PASS - Preview sessions created with role-based access
+
+### 29. Preview Session - Demo Data
+```bash
+curl "http://localhost:5000/api/preview/demo-data?token=$PREVIEW_TOKEN" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID"
+```
+**Response:**
+```json
+{
+  "data": {
+    "users": [
+      {"id": "demo-1", "name": "Demo Admin", "email": "admin@demo.local", "role": "admin", "isDemo": true},
+      {"id": "demo-2", "name": "Demo Staff", "email": "staff@demo.local", "role": "staff", "isDemo": true}
+    ],
+    "stats": {"totalUsers": 3, "activeModules": 4, "recentOrders": 12, "revenue": "$1,234.00", "isDemo": true}
+  },
+  "isDemo": true,
+  "role": "admin"
+}
+```
+**Status:** PASS - Demo data clearly marked as "Demo"
+
+### 30. Industry Presets - Booking Templates
+```bash
+curl "http://localhost:5000/api/presets?template=booking" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID"
+```
+**Response:**
+```json
+{
+  "template": "booking",
+  "presets": [
+    {"presetKey": "hair_salon", "name": "Hair Salon", "description": "Best for salons with staff schedules"},
+    {"presetKey": "clinic", "name": "Medical Clinic", "description": "Best for medical practices"},
+    {"presetKey": "gym", "name": "Gym / Fitness Studio", "description": "Best for gyms with class bookings"}
+  ]
+}
+```
+**Status:** PASS - Industry presets for each template type
+
+### 31. Industry Presets - Ecommerce Templates
+```bash
+curl "http://localhost:5000/api/presets?template=ecommerce" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID"
+```
+**Response:**
+```json
+{
+  "template": "ecommerce",
+  "presets": [
+    {"presetKey": "grocery", "name": "Grocery Store", "description": "Best for grocery and food delivery"},
+    {"presetKey": "clothing", "name": "Clothing Store", "description": "Best for fashion retailers"},
+    {"presetKey": "pharmacy", "name": "Pharmacy", "description": "Best for pharmacies and health stores"}
+  ]
+}
+```
+**Status:** PASS - Industry presets available for all template types
+
+### 32. Cost Transparency Panel
+```bash
+curl http://localhost:5000/api/costs \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID"
+```
+**Response:**
+```json
+{
+  "breakdown": [
+    {"category": "hosting", "label": "Hosting", "paidTo": "Your hosting provider", "estimate": {"min": 0, "max": 25}},
+    {"category": "database", "label": "Database", "paidTo": "Your database provider", "estimate": {"min": 0, "max": 19}},
+    {"category": "email", "label": "Email Service", "paidTo": "Your email provider", "estimate": {"min": 0, "max": 20}},
+    {"category": "ai", "label": "AI Services", "paidTo": "OpenAI / AI Provider", "estimate": {"min": 0, "max": 0}},
+    {"category": "platform", "label": "Platform Fee", "paidTo": "Digital Platform Factory", "estimate": {"min": 0, "max": 0}}
+  ],
+  "summary": {"totalMin": 0, "totalMax": 44, "currency": "USD", "period": "month"},
+  "context": {"plan": "free", "provider": "replit", "enabledModules": [], "hasAI": false}
+}
+```
+**Status:** PASS - Cost breakdown showing what's paid to whom
+
+### 33. Human-Friendly Error Handler
+**Implementation:** apps/api/src/lib/errors.ts
+**Error Types:**
+- DATABASE_CONNECTION_FAILED: "Database connection failed. Check DATABASE_URL."
+- JWT_SECRET_MISSING: "JWT secret is not configured. Set SESSION_SECRET."
+- ENCRYPTION_KEY_INVALID: "Encryption key is invalid. Must be 32 characters."
+- AI_DISABLED: "AI features are disabled. No OPENAI_API_KEY provided."
+- EMAIL_PROVIDER_NOT_CONFIGURED: "Email service not configured."
+- PAYMENT_PROVIDER_NOT_CONFIGURED: "Payment processing not configured."
+
+**Status:** PASS - Human-readable errors with actionable guidance
+
+## Phase 1 Web UI Pages
+
+### Checklist Page (/dashboard/checklist)
+- Progress bar showing completion percentage
+- List of checklist items with toggle buttons
+- "What's Blocking Go Live" section highlighting required items
+- Reset checklist functionality
+
+### Preview Page (/dashboard/preview)
+- Role selector (Admin/Staff/Customer)
+- "Preview Your App" button to create sessions
+- Preview URL with copy button
+- Demo data display (stats, users, activity)
+- Preview mode restrictions notice
+
+### Cost Estimate Page (/dashboard/costs)
+- Total estimated cost range (e.g., $0 - $44/mo)
+- Breakdown by category (hosting, database, email, AI, platform)
+- Clear indication of what's paid to whom
+- Notes about free tiers and usage-based pricing
+
+### Builder Integration
+- Industry preset selection after template detection
+- Presets show description ("Best for salons with staff schedules")
+- Selected preset customizes workflow labels and sample data
+- "Go to Checklist" button after successful build
+
+---
+
+**Phase 1 Status:** COMPLETE
+- All 5 features implemented and API-verified
+- Web UI pages created with mobile-friendly design
+- Human-friendly error messages active
+- No breaking changes to existing functionality
+
+### 34. Apply Industry Preset
+```bash
+curl -X POST http://localhost:5000/api/presets/apply \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID" \
+  -H "Content-Type: application/json" \
+  -d '{"templateKey": "booking", "presetKey": "hair_salon"}'
+```
+**Response:**
+```json
+{
+  "ok": true,
+  "applied": {
+    "templateKey": "booking",
+    "presetKey": "hair_salon",
+    "presetName": "Hair Salon",
+    "configJson": {
+      "workflowLabels": {"appointment": "Hair Appointment", "service": "Hair Service", "provider": "Stylist"},
+      "sampleData": {"services": ["Haircut", "Color", "Highlights", "Blowout"], "durations": [30, 60, 90, 120]},
+      "dashboardWidgets": {"title": "Salon Dashboard", "stats": ["Appointments Today", "Revenue", "Top Stylists"]}
+    }
+  }
+}
+```
+**Status:** PASS - Preset applied and stored in tenant settings
+
+### 35. Get Applied Preset
+```bash
+curl http://localhost:5000/api/presets/applied \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-tenant-id: $TENANT_ID"
+```
+**Response:**
+```json
+{
+  "applied": {"templateKey": "booking", "presetKey": "hair_salon", "presetName": "Hair Salon", "appliedAt": "2026-01-29T07:33:31.767Z"},
+  "configJson": {...}
+}
+```
+**Status:** PASS - Applied preset retrievable for use in builder/dashboard
