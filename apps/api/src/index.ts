@@ -11,6 +11,7 @@ import { auditRoutes } from './routes/audit.js';
 import { aiRoutes } from './routes/ai.js';
 import { dashboardRoutes } from './routes/dashboard.js';
 import { builderRoutes } from './routes/builder.js';
+import { deployRoutes } from './routes/deploy.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 
 export const prisma = new PrismaClient();
@@ -40,6 +41,16 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Ready check (for deploy verification)
+app.get('/api/ready', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ready', database: 'connected' });
+  } catch (error) {
+    res.status(503).json({ status: 'not_ready', database: 'disconnected' });
+  }
+});
+
 // Auth routes (public)
 app.use('/api/auth', authLimiter, authRoutes);
 
@@ -52,6 +63,7 @@ app.use('/api/audit-logs', apiLimiter, authMiddleware, tenantMiddleware, auditRo
 app.use('/api/ai', apiLimiter, authMiddleware, tenantMiddleware, aiRoutes);
 app.use('/api/dashboard', apiLimiter, authMiddleware, tenantMiddleware, dashboardRoutes);
 app.use('/api/builder', apiLimiter, authMiddleware, tenantMiddleware, builderRoutes);
+app.use('/api/deploy', apiLimiter, authMiddleware, tenantMiddleware, deployRoutes);
 
 // Error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

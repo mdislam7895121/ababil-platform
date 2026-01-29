@@ -1,0 +1,144 @@
+ROLE: You are implementing a CUSTOMER SELF-SERVE “Deploy Wizard” inside the existing Digital Platform Factory monorepo (apps/api, apps/web, apps/mobile, packages/shared). Goal: customers can connect their own infrastructure credentials (BYO) and publish with minimal steps. Must be low-cost, safe, and proof-first.
+
+NON-NEGOTIABLE RULES
+1) Proof-first: Never claim done without evidence (git diff/stat, logs, curl outputs).
+2) Non-breaking: Additive changes only. Do not refactor working flows.
+3) No “magic deploy” to providers without customer credentials. BYO only.
+4) Secrets: never log secrets; encrypt at rest with ENCRYPTION_KEY. Redact on output.
+5) Tenant-scoped: all deploy configs + runs are tenant-scoped. RBAC: only owner/admin.
+6) Works on mobile browser: UI must be simple and responsive.
+
+SCOPE (MVP)
+We are NOT building full IaC for every provider.
+We ARE building a “Go Live” wizard that:
+- Validates required env vars
+- Validates DB connectivity
+- Stores deploy configuration securely
+- Runs a post-config verification suite against the currently running deployment
+- Produces a “Publish Checklist” and “Live URL” output for the customer
+
+IMPORTANT CLARIFICATION
+For MVP, “one-click publish” means:
+- Customer uses ONE recommended host path (Replit Deploy or Render) with copy/paste env,
+- Wizard generates env + verifies + gives a step-by-step “Deploy Now” checklist,
+- After deploy, wizard runs smoke tests against the live URL and marks tenant “LIVE”.
+
+This keeps cost low and avoids fragile automated provider APIs.
+
+DATABASE (Prisma) — ADD MODELS
+Add these tenant-scoped models:
+- DeployConfig:
+  id, tenantId, provider (REPLIT|RENDER|RAILWAY|FLY|DOCKER), appUrl, status(draft|configured|live),
+  dbUrlEncrypted, jwtSecretEncrypted, encryptionKeyRef (never store ENCRYPTION_KEY itself),
+  optionalJson (connector notes), createdAt, updatedAt
+- DeployRun:
+  id, tenantId, deployConfigId, status(started|passed|failed), startedAt, finishedAt,
+  resultsJson, errorText
+
+Rules:
+- Encrypt dbUrl and jwtSecret in DB using existing crypto helper (apps/api/src/lib/crypto.ts).
+- Never store plaintext secrets.
+- ENCRYPTION_KEY comes from environment only.
+
+API (apps/api) — NEW ROUTES
+Create routes under /api/deploy:
+1) GET /api/deploy/config
+- returns provider, appUrl, status, and whether required secrets are set (booleans only)
+
+2) POST /api/deploy/config
+Input (Zod validated):
+{
+  provider: "REPLIT"|"RENDER"|"RAILWAY"|"FLY"|"DOCKER",
+  appUrl: string,
+  databaseUrl: string,
+  jwtSecret: string
+}
+Behavior:
+- owner/admin only
+- Encrypt databaseUrl + jwtSecret and store
+- Write audit log: DEPLOY_CONFIG_SAVED
+- Return: { ok:true }
+
+3) POST /api/deploy/verify
+Behavior:
+- owner/admin only
+- Uses stored config to run verification suite:
+  a) Connect to DB using DATABASE_URL provided (do not migrate here yet)
+  b) Verify required env present: DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY (server env)
+  c) Call live URL endpoints:
+     - GET {appUrl}/health
+     - GET {appUrl}/ready
+     - GET {appUrl}/api/dashboard/stats (with auth)
+  d) Record results in DeployRun
+- Return: { status, results }
+
+4) GET /api/deploy/runs
+- list last 10 verification runs
+
+WEB UI (apps/web)
+Add a new page: /dashboard/deploy
+UI steps (simple wizard):
+Step 1: Choose provider (default REPLIT, also show Render)
+Step 2: Enter Live App URL (appUrl)
+Step 3: Paste DATABASE_URL + JWT_SECRET
+- Show warning: “These values are encrypted and never shown again.”
+Step 4: Click “Save Config”
+Step 5: Show “Deploy Checklist”:
+  - Required env vars list (DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY)
+  - Prisma migration command to run in deploy environment: `npx prisma migrate deploy`
+  - Start command
+Step 6: Button “Verify Live URL”
+- Displays pass/fail for health/ready/stats and last DeployRun details
+
+MVP “PUBLISH” BEHAVIOR
+- Wizard DOES NOT auto-create infra.
+- It helps customer publish by:
+  - generating/checking env
+  - providing a minimal checklist
+  - verifying the deployed app URL works
+
+DEPLOY CHECKLIST CONTENT (MUST INCLUDE)
+- Environment Variables:
+  DATABASE_URL
+  JWT_SECRET
+  ENCRYPTION_KEY
+  OPENAI_API_KEY (optional)
+- Migration:
+  npx prisma migrate deploy
+- Start:
+  npm run start (or pnpm start)
+- Verification URLs:
+  /health
+  /ready
+  /api/dashboard/stats
+
+DOC UPDATES (MANDATORY)
+1) Update DEPLOY.md: Add “Deploy Wizard” section explaining how to use /dashboard/deploy.
+2) Update README.md: Link to Deploy Wizard and describe required env vars.
+3) Update reports/proof.md:
+   - show curl calls to /api/deploy/config and /api/deploy/verify
+   - show a sample DeployRun result JSON (redacted)
+
+SECURITY + QUALITY
+- All inputs validated with Zod.
+- Rate limit deploy endpoints (e.g., 10/min per tenant).
+- No secret logging (redact in logs).
+- Add audit logs for save + verify actions.
+
+PROOF-FIRST VERIFICATION (RUN AND CAPTURE)
+- pnpm -r typecheck
+- Start API and show logs
+- curl sequence:
+  a) login (get token)
+  b) POST /api/deploy/config (with sample values)
+  c) GET /api/deploy/config (ensure booleans)
+  d) POST /api/deploy/verify (should at least verify local URL)
+  e) GET /api/deploy/runs
+- Append evidence to reports/proof.md
+
+STOP CONDITION
+When done, output:
+- File paths changed/added
+- How to use /dashboard/deploy
+- Proof outputs (redacted)
+Do not ask questions. Implement.

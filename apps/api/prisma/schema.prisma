@@ -25,6 +25,8 @@ model Tenant {
   builderRequests  BuilderRequest[]
   blueprints       Blueprint[]
   buildRuns        BuildRun[]
+  deployConfigs    DeployConfig[]
+  deployRuns       DeployRun[]
 
   @@map("tenants")
 }
@@ -203,4 +205,40 @@ model BuildRun {
   builderRequest BuilderRequest @relation(fields: [builderRequestId], references: [id], onDelete: Cascade)
 
   @@map("build_runs")
+}
+
+model DeployConfig {
+  id                 String   @id @default(uuid())
+  tenantId           String   @unique @map("tenant_id")
+  provider           String   @default("REPLIT") // REPLIT|RENDER|RAILWAY|FLY|DOCKER
+  appUrl             String?  @map("app_url")
+  status             String   @default("draft") // draft|configured|live
+  dbUrlEncrypted     String?  @map("db_url_encrypted")
+  jwtSecretEncrypted String?  @map("jwt_secret_encrypted")
+  encryptionKeyRef   String?  @map("encryption_key_ref") // never store actual key
+  optionalJson       Json?    @map("optional_json")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deployRuns DeployRun[]
+
+  @@map("deploy_configs")
+}
+
+model DeployRun {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  deployConfigId String    @map("deploy_config_id")
+  status         String    @default("started") // started|passed|failed
+  startedAt      DateTime  @default(now()) @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  resultsJson    Json?     @map("results_json")
+  errorText      String?   @map("error_text")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deployConfig DeployConfig @relation(fields: [deployConfigId], references: [id], onDelete: Cascade)
+
+  @@map("deploy_runs")
 }
