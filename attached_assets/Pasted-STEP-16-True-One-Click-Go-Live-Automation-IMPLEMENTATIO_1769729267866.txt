@@ -1,0 +1,119 @@
+STEP 16 (True One-Click Go-Live Automation) — IMPLEMENTATION PROMPT
+
+GOAL
+Turn the existing Deploy Wizard into a true “one-click go-live” system that:
+1) generates provider-specific deploy packs,
+2) validates env + config before deploy,
+3) runs post-deploy smoke automatically,
+4) produces a clear Go/No-Go report for the customer,
+without breaking current flows.
+
+NON-NEGOTIABLE RULES
+1) Additive only. No refactors of existing deploy wizard pages/routes.
+2) Must reuse existing STEP 9 scripts (smoke/verify) and STEP 10 jobs where useful.
+3) Must preserve Golden Flows F1–F4.
+4) “One-click” means: customer follows a single guided path and gets a final PASS/FAIL report.
+   (You may still require the provider’s own final “Deploy” button; but our side must be one-click.)
+5) Proof-first: raw outputs, screenshots, and a proof report.
+
+WHAT TO BUILD
+
+A) Provider Deploy Packs (Downloadable)
+Create endpoint:
+- POST /api/deploy/packs/generate
+Body: { provider: "render"|"railway"|"fly"|"docker", appName, appUrl }
+Returns: packId, status, downloadUrl
+
+Create endpoint:
+- GET /api/deploy/packs/:id/download  -> returns a ZIP
+
+Each ZIP must include:
+1) provider-specific config files:
+   - Render: render.yaml (web + api services) OR instructions + env template
+   - Railway: railway.json / or nixpacks config + env template
+   - Fly: fly.toml + deploy instructions
+   - Docker: docker-compose.yml + Dockerfile(s) if needed
+2) .env.example (filled with required keys, placeholders)
+3) DEPLOY_STEPS.md (one page, copy/paste steps)
+4) POST_DEPLOY_CHECK.md (what checks run and how to verify)
+5) “Secrets checklist” section that maps required vars and where to set them
+
+B) Preflight as a Gate (Already exists, but enforce)
+- Deploy wizard Step 5/6 should refuse “Go Live” if preflight fails.
+- Add “Auto-Fix Suggestions” panel:
+  - If SESSION_SECRET missing -> show Generate button or command
+  - If DB unreachable -> show exact Railway/Render instructions
+  - If admin user missing -> show seed steps
+
+C) Post-Deploy Smoke Runner (Automatic)
+Create endpoint:
+- POST /api/deploy/verify/run
+Body: { appUrl }
+Behavior:
+- Runs a “remote smoke” by hitting:
+  - {appUrl}/api/health
+  - {appUrl}/api/ready
+  - {appUrl}/login (or web root)
+- Stores results in DB table DeployVerificationRun:
+  - id, appUrl, status(pass|fail), checks[], createdAt
+- Returns result JSON with human friendly guidance.
+
+Also add:
+- GET /api/deploy/verify/runs?limit=20
+
+D) Go-Live Finalization (State machine)
+Ensure deploy states:
+pending -> verified -> live
+Add endpoint (or use existing):
+- POST /api/deploy/go-live
+Only succeeds if latest verification run is PASS and subscription allows go-live.
+Writes audit log: GO_LIVE_COMPLETED
+
+E) UI Enhancements (Minimal)
+In /dashboard/deploy:
+1) “Generate Deploy Pack” button (choose provider)
+2) “Run Remote Verification” button (asks for appUrl)
+3) “Go Live” button enabled only when verification PASS
+
+F) Rate limit & Safety
+- Add rate limit to /api/deploy/verify/run (e.g., 30/hr per tenant)
+- Do not leak secrets in pack files; only placeholders.
+- Audit log events:
+  - DEPLOY_PACK_GENERATED
+  - DEPLOY_VERIFY_RUN
+  - GO_LIVE_COMPLETED
+
+G) Documentation
+- Update DEPLOY.md to mention Deploy Packs + Remote Verification
+- Create reports/step16-proof.md with raw evidence
+
+PROOF REQUIRED (MANDATORY)
+1) Generate pack for 2 providers (e.g., Render + Docker):
+   - POST generate (raw output)
+   - Download ZIP (HTTP 200)
+   - Show ZIP file listing contains required files (unzip -l output)
+
+2) Remote verification proof:
+   - Run verify against local dev URL (http://localhost:5000 or mapped web url)
+   - Show PASS output with checks list
+   - Simulate FAIL (bad appUrl) and show FAIL with guidance
+
+3) Go-live gating proof:
+   - Attempt go-live when verification FAIL -> blocked
+   - Go-live after PASS -> success; status becomes live
+
+4) UI proof:
+   - Screenshots of Deploy wizard showing the three buttons and state changes
+   - Show last verification run displayed
+
+5) Regression proof:
+   - ./scripts/smoke.sh PASS
+   - ./scripts/verify.sh PASS (warnings ok if pre-existing)
+
+6) Artifacts:
+   - reports/step16-proof.md
+   - list changed files + git status
+
+STOP CONDITION
+Stop after STEP 16 proof delivered.
+Do NOT start STEP 17.

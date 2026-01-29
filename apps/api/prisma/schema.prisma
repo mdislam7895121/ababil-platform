@@ -570,3 +570,34 @@ model Incident {
   @@index([firstSeenAt])
   @@map("incidents")
 }
+
+model DeployPack {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  provider    String    // render|railway|fly|docker
+  appName     String    @map("app_name")
+  appUrl      String?   @map("app_url")
+  status      String    @default("pending") // pending|generating|ready|failed
+  downloadUrl String?   @map("download_url")
+  packPath    String?   @map("pack_path")
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("deploy_packs")
+}
+
+model DeployVerificationRun {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  appUrl    String   @map("app_url")
+  status    String   @default("running") // running|pass|fail
+  checks    Json     @default("[]")
+  guidance  String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("deploy_verification_runs")
+}
