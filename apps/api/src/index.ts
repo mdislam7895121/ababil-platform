@@ -64,6 +64,7 @@ import { revenueRoutes } from './routes/revenue.js';
 import { paymentsRoutes } from './routes/payments.js';
 import { invoicesRoutes } from './routes/invoices.js';
 import i18nRoutes from './routes/i18n.js';
+import resellersRoutes from './routes/resellers.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 
@@ -134,6 +135,35 @@ app.use('/api/preview', apiLimiter, previewPublicRoutes);
 // Public i18n routes (languages list and translations)
 app.use('/api/i18n', apiLimiter, i18nRoutes);
 
+// Public reseller branding lookup (no auth required)
+app.get('/api/resellers/branding/lookup', apiLimiter, async (req, res) => {
+  const { domain, subdomain, slug } = req.query;
+  try {
+    let reseller = null;
+    if (domain) {
+      reseller = await prisma.reseller.findFirst({
+        where: { domain: domain as string, status: 'active' },
+        select: { id: true, name: true, slug: true, logoUrl: true, primaryColor: true, secondaryColor: true, showPoweredBy: true },
+      });
+    }
+    if (!reseller && subdomain) {
+      reseller = await prisma.reseller.findFirst({
+        where: { subdomain: subdomain as string, status: 'active' },
+        select: { id: true, name: true, slug: true, logoUrl: true, primaryColor: true, secondaryColor: true, showPoweredBy: true },
+      });
+    }
+    if (!reseller && slug) {
+      reseller = await prisma.reseller.findFirst({
+        where: { slug: slug as string, status: 'active' },
+        select: { id: true, name: true, slug: true, logoUrl: true, primaryColor: true, secondaryColor: true, showPoweredBy: true },
+      });
+    }
+    res.json({ branding: reseller, isWhiteLabel: !!reseller });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to lookup branding' });
+  }
+});
+
 // Public billing plans endpoint
 app.get('/api/billing/plans', apiLimiter, async (req, res) => {
   res.json({
@@ -169,6 +199,7 @@ app.use('/api/billing', apiLimiter, authMiddleware, tenantMiddleware, billingRou
 app.use('/api/revenue', apiLimiter, authMiddleware, tenantMiddleware, revenueRoutes);
 app.use('/api/payments', apiLimiter, authMiddleware, tenantMiddleware, paymentsRoutes);
 app.use('/api/invoices', apiLimiter, authMiddleware, tenantMiddleware, invoicesRoutes);
+app.use('/api/resellers', apiLimiter, authMiddleware, tenantMiddleware, resellersRoutes);
 
 // Error handler with human-friendly messages
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
