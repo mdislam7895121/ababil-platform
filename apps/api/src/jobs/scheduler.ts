@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { PrismaClient } from "@prisma/client";
 import { cleanupPreviewSessions } from "./cleanupPreviewSessions";
 import { cleanupI18nCache } from "./cleanupI18nCache";
+import { cleanupExports } from "./cleanupExports";
 
 const prisma = new PrismaClient();
 
@@ -77,9 +78,14 @@ export function startScheduler() {
     await runJob("cleanupI18nCache", cleanupI18nCache);
   });
 
+  cron.schedule("0 */4 * * *", async () => {
+    await runJob("cleanupExports", cleanupExports);
+  });
+
   console.log("[Jobs] Scheduled jobs:");
   console.log("  - cleanupPreviewSessions: every 6 hours (0 */6 * * *)");
   console.log("  - cleanupI18nCache: daily at 3am (0 3 * * *)");
+  console.log("  - cleanupExports: every 4 hours (0 */4 * * *)");
 }
 
 export async function runJobManually(jobName: string) {
@@ -88,6 +94,8 @@ export async function runJobManually(jobName: string) {
       return runJob("cleanupPreviewSessions", cleanupPreviewSessions);
     case "cleanupI18nCache":
       return runJob("cleanupI18nCache", cleanupI18nCache);
+    case "cleanupExports":
+      return runJob("cleanupExports", cleanupExports);
     default:
       throw new Error(`Unknown job: ${jobName}`);
   }
@@ -100,6 +108,7 @@ export function getSchedulerStatus() {
     jobs: [
       { name: "cleanupPreviewSessions", schedule: "0 */6 * * *", description: "Cleanup expired preview sessions" },
       { name: "cleanupI18nCache", schedule: "0 3 * * *", description: "Cleanup old i18n cache entries" },
+      { name: "cleanupExports", schedule: "0 */4 * * *", description: "Cleanup expired export files" },
     ],
   };
 }

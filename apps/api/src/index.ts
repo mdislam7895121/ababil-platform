@@ -66,6 +66,9 @@ import { invoicesRoutes } from './routes/invoices.js';
 import i18nRoutes from './routes/i18n.js';
 import resellersRoutes from './routes/resellers.js';
 import jobsRoutes from './routes/jobs.js';
+import exportsRoutes from './routes/exports.js';
+import backupsRoutes from './routes/backups.js';
+import tenantsRoutes from './routes/tenants.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 import { startScheduler } from './jobs/index.js';
@@ -206,6 +209,9 @@ app.use('/api/payments', apiLimiter, authMiddleware, tenantMiddleware, paymentsR
 app.use('/api/invoices', apiLimiter, authMiddleware, tenantMiddleware, invoicesRoutes);
 app.use('/api/resellers', apiLimiter, authMiddleware, tenantMiddleware, resellersRoutes);
 app.use('/api/jobs', apiLimiter, authMiddleware, tenantMiddleware, jobsRoutes);
+app.use('/api/exports', apiLimiter, authMiddleware, tenantMiddleware, exportsRoutes);
+app.use('/api/backups', apiLimiter, authMiddleware, tenantMiddleware, backupsRoutes);
+app.use('/api/tenants', apiLimiter, authMiddleware, tenantMiddleware, tenantsRoutes);
 
 // Error handler with human-friendly messages
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -8,16 +8,19 @@ datasource db {
 }
 
 model Tenant {
-  id         String   @id @default(uuid())
-  name       String
-  slug       String   @unique
-  plan       String   @default("free")
-  settings   Json     @default("{}")
-  language   String   @default("en")
-  languages  String[] @default(["en"])
-  resellerId String?  @map("reseller_id")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id              String    @id @default(uuid())
+  name            String
+  slug            String    @unique
+  plan            String    @default("free")
+  settings        Json      @default("{}")
+  language        String    @default("en")
+  languages       String[]  @default(["en"])
+  resellerId      String?   @map("reseller_id")
+  deletedAt       DateTime? @map("deleted_at")
+  deleteToken     String?   @map("delete_token")
+  deleteExpiresAt DateTime? @map("delete_expires_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   reseller         Reseller?         @relation(fields: [resellerId], references: [id], onDelete: SetNull)
   memberships      Membership[]
@@ -39,6 +42,8 @@ model Tenant {
   subscription     Subscription?
   manualPayments   ManualPayment[]
   invoices         Invoice[]
+  exportJobs       ExportJob[]
+  backupSnapshots  BackupSnapshot[]
 
   @@map("tenants")
 }
@@ -461,4 +466,37 @@ model JobRun {
   @@index([name])
   @@index([createdAt])
   @@map("job_runs")
+}
+
+model ExportJob {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  status       String    @default("pending") // pending|processing|ready|failed|expired
+  format       String    @default("zip") // zip|json
+  filePath     String?   @map("file_path")
+  fileSize     Int?      @map("file_size")
+  errorMessage String?   @map("error_message")
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("export_jobs")
+}
+
+model BackupSnapshot {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  type      String   @default("manual") // manual|scheduled
+  counts    Json     @default("{}") // { users: 10, memberships: 5, ... }
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("backup_snapshots")
 }
