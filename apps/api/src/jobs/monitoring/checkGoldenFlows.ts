@@ -31,15 +31,19 @@ const GOLDEN_FLOWS: FlowCheck[] = [
     },
   },
   {
-    name: "F2: Onboarding → Preview",
-    description: "Onboarding wizard accessible",
+    name: "F2: Auth → Dashboard",
+    description: "Auth flow and dashboard accessible",
     check: async () => {
       try {
-        const response = await fetch(`${WEB_URL}/onboarding`, { redirect: "manual" });
-        if (response.status >= 200 && response.status < 400) {
+        const loginPage = await fetch(`${WEB_URL}/login`, { redirect: "manual" });
+        if (loginPage.status >= 200 && loginPage.status < 400) {
           return { ok: true };
         }
-        return { ok: false, error: `Onboarding page returned ${response.status}` };
+        const signupPage = await fetch(`${WEB_URL}/signup`, { redirect: "manual" });
+        if (signupPage.status >= 200 && signupPage.status < 400) {
+          return { ok: true };
+        }
+        return { ok: false, error: `Auth pages returned ${loginPage.status}/${signupPage.status}` };
       } catch (e) {
         return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
       }

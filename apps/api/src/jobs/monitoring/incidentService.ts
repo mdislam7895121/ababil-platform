@@ -17,16 +17,15 @@ interface IncidentData {
 
 export async function raiseIncident(data: IncidentData): Promise<string> {
   const now = new Date();
-  const dedupWindow = new Date(now.getTime() - DEDUP_WINDOW_MINUTES * 60 * 1000);
+  const alertThrottleWindow = new Date(now.getTime() - ALERT_THROTTLE_MINUTES * 60 * 1000);
 
   const existingIncident = await prisma.incident.findFirst({
     where: {
       type: data.type,
       message: data.message,
       resolvedAt: null,
-      firstSeenAt: { gte: dedupWindow },
     },
-    orderBy: { firstSeenAt: "desc" },
+    orderBy: { lastSeenAt: "desc" },
   });
 
   if (existingIncident) {
