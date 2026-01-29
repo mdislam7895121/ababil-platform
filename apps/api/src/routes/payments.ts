@@ -85,6 +85,26 @@ router.post('/manual', async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.get('/manual/self', async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID required' });
+    }
+
+    const payments = await prisma.manualPayment.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json({ payments });
+  } catch (error) {
+    console.error('Fetch self payments error:', error);
+    res.status(500).json({ error: 'Failed to fetch payments' });
+  }
+});
+
 router.get('/manual/pending', requireRole('owner', 'admin'), async (req: AuthRequest, res: Response) => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;

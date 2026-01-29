@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useAuth } from "@/lib/auth-context";
-import DashboardLayout from "@/components/dashboard-layout";
+import { useAuth } from "@/lib/auth";
+import { DashboardLayout } from "@/components/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,9 +47,9 @@ export default function BillingPage() {
   const [currency, setCurrency] = useState("BDT");
 
   const { data: myPayments, refetch: refetchPayments } = useQuery<{ payments: ManualPayment[] }>({
-    queryKey: ["/api/payments/manual", currentTenant?.id],
+    queryKey: ["/api/payments/manual/self", currentTenant?.id],
     queryFn: async () => {
-      const res = await fetch("/api/payments/manual", {
+      const res = await fetch("/api/payments/manual/self", {
         headers: { 
           Authorization: `Bearer ${token}`,
           "x-tenant-id": currentTenant?.id || ""

@@ -1,15 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import { scrypt, randomBytes } from 'crypto';
-import { promisify } from 'util';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
-const scryptAsync = promisify(scrypt);
-
-async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16).toString('hex');
-  const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${salt}:${derivedKey.toString('hex')}`;
-}
 
 async function main() {
   console.log('Seeding database...');
@@ -19,7 +11,20 @@ async function main() {
   });
 
   if (existingTenant) {
-    console.log('Demo tenant already exists, skipping seed.');
+    console.log('Demo tenant already exists, updating user password...');
+    
+    const existingUser = await prisma.user.findFirst({
+      where: { email: 'admin@example.com' }
+    });
+    
+    if (existingUser) {
+      const passwordHash = await bcrypt.hash('password123', 12);
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: { passwordHash }
+      });
+      console.log('Updated password for admin@example.com');
+    }
     return;
   }
 
@@ -34,7 +39,7 @@ async function main() {
 
   console.log(`Created tenant: ${tenant.name} (${tenant.id})`);
 
-  const passwordHash = await hashPassword('password123');
+  const passwordHash = await bcrypt.hash('password123', 12);
 
   const user = await prisma.user.create({
     data: {
