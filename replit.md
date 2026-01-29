@@ -90,11 +90,29 @@ Preferred communication style: Simple, everyday language.
 
 ## Running the Application
 
-The `npm run dev` command starts the Express API server on port 5000. The server entry point (`server/index.ts`) imports and runs the API from `apps/api/src/index.ts`.
+### Unified Start (Recommended)
+Run both API and Web dashboard together:
+```bash
+./scripts/dev-all.sh
+```
 
-For the Next.js web dashboard, run `cd apps/web && npm run dev` (runs on port 3000).
+This starts:
+- **API Server**: http://localhost:5000 (Express + Prisma)
+- **Web Dashboard**: http://localhost:3000 (Next.js)
 
-For the Expo mobile app, run `cd apps/mobile && npx expo start`.
+Logs are prefixed with `[api]` (blue) and `[web]` (green) for easy identification.
+
+### Individual Services
+- **API only**: `npm run dev` (port 5000)
+- **Web only**: `npm run dev --prefix apps/web` (port 3000)
+- **Mobile**: `cd apps/mobile && npx expo start`
+
+### Opening the Web Dashboard
+After starting with `./scripts/dev-all.sh`, open: **http://localhost:3000**
+
+Default test credentials:
+- Email: `admin@example.com`
+- Password: `password123`
 
 ## Phase 1 Features (Demand-Focused Upgrade)
 
