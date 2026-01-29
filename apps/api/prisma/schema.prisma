@@ -33,6 +33,8 @@ model Tenant {
   setupSteps       SetupStep[]
   healthStatus     HealthStatus?
   subscription     Subscription?
+  manualPayments   ManualPayment[]
+  invoices         Invoice[]
 
   @@map("tenants")
 }
@@ -47,10 +49,11 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  memberships     Membership[]
-  auditLogs       AuditLog[]
-  aiUsage         AiUsage[]
-  builderRequests BuilderRequest[]
+  memberships      Membership[]
+  auditLogs        AuditLog[]
+  aiUsage          AiUsage[]
+  builderRequests  BuilderRequest[]
+  approvedPayments ManualPayment[]
 
   @@map("users")
 }
@@ -341,4 +344,45 @@ model Subscription {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("subscriptions")
+}
+
+model ManualPayment {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  amount         Decimal   @db.Decimal(10, 2)
+  currency       String    @default("BDT")
+  method         String    // bkash|nagad|rocket|bank|cash
+  transactionRef String    @map("transaction_ref")
+  proofImageUrl  String?   @map("proof_image_url")
+  plan           String    @default("pro") // pro|business
+  status         String    @default("pending") // pending|approved|rejected
+  rejectionNote  String?   @map("rejection_note")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  approvedAt     DateTime? @map("approved_at")
+  approvedById   String?   @map("approved_by_id")
+
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  approvedBy User?  @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+  invoices   Invoice[]
+
+  @@map("manual_payments")
+}
+
+model Invoice {
+  id               String   @id @default(uuid())
+  tenantId         String   @map("tenant_id")
+  subscriptionPlan String   @map("subscription_plan") // pro|business
+  amount           Decimal  @db.Decimal(10, 2)
+  currency         String   @default("USD")
+  paymentType      String   @map("payment_type") // stripe|manual
+  paymentId        String?  @map("payment_id") // stripeSessionId or manualPaymentId
+  status           String   @default("pending") // pending|paid|rejected
+  issuedAt         DateTime @default(now()) @map("issued_at")
+  paidAt           DateTime? @map("paid_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  manualPayment ManualPayment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@map("invoices")
 }

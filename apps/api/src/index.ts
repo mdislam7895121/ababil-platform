@@ -61,6 +61,8 @@ import { analyticsRoutes } from './routes/analytics.js';
 import { onboardingRoutes } from './routes/onboarding.js';
 import { billingRoutes } from './routes/billing.js';
 import { revenueRoutes } from './routes/revenue.js';
+import { paymentsRoutes } from './routes/payments.js';
+import { invoicesRoutes } from './routes/invoices.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 
@@ -161,6 +163,8 @@ app.use('/api/analytics', apiLimiter, authMiddleware, tenantMiddleware, analytic
 app.use('/api/onboarding', apiLimiter, authMiddleware, tenantMiddleware, onboardingRoutes);
 app.use('/api/billing', apiLimiter, authMiddleware, tenantMiddleware, billingRoutes);
 app.use('/api/revenue', apiLimiter, authMiddleware, tenantMiddleware, revenueRoutes);
+app.use('/api/payments', apiLimiter, authMiddleware, tenantMiddleware, paymentsRoutes);
+app.use('/api/invoices', apiLimiter, authMiddleware, tenantMiddleware, invoicesRoutes);
 
 // Error handler with human-friendly messages
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

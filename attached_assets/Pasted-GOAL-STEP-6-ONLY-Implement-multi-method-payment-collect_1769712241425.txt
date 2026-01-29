@@ -1,0 +1,77 @@
+GOAL (STEP 6 ONLY)
+Implement multi-method payment collection with invoice control for Global + Bangladesh users.
+This step must expand revenue options without breaking existing Stripe billing.
+
+SCOPE RULES
+1) Additive only. Do NOT refactor existing billing or revenue logic.
+2) Owner/Admin only for approvals.
+3) Manual payments must NOT auto-activate without admin approval.
+4) Proof-first required.
+
+WHAT TO BUILD (BACKEND)
+
+A) ManualPayment Model (Prisma)
+Fields:
+- id
+- workspaceId
+- amount
+- currency
+- method (bkash, nagad, rocket, bank, cash)
+- transactionRef
+- proofImageUrl (optional)
+- status (pending, approved, rejected)
+- createdAt, approvedAt
+- approvedBy
+
+B) Invoice Model
+- id
+- workspaceId
+- subscriptionPlan
+- amount
+- paymentType (stripe, manual)
+- paymentId (stripeSessionId or manualPaymentId)
+- status (pending, paid, rejected)
+- issuedAt
+
+C) APIs
+- POST /api/payments/manual (customer submits payment info)
+- GET /api/payments/manual/pending (admin only)
+- POST /api/payments/manual/:id/approve
+- POST /api/payments/manual/:id/reject
+- GET /api/invoices (admin)
+- GET /api/invoices/:id/pdf
+
+D) Logic
+- On manual approve → activate subscription
+- On reject → no activation
+- Audit log all actions
+
+WHAT TO BUILD (FRONTEND)
+
+E) Customer UI
+- Payment option selector (Card / Manual)
+- Manual payment form (method + ref + proof upload)
+- Status indicator (Pending approval)
+
+F) Admin UI
+- New page: /dashboard/payments
+- Tabs: Pending / Approved / Rejected
+- Approve / Reject actions
+- Invoice view/download
+
+SECURITY
+- RBAC enforced
+- Tenant isolation mandatory
+- Proof upload size/type validation
+
+PROOF REQUIRED
+1) Screenshot: Customer manual payment submission
+2) Screenshot: Admin pending payment list
+3) Screenshot: Approve action + status change
+4) Screenshot: Invoice generated (manual)
+5) API response samples
+6) proof.md update
+
+STOP CONDITION
+Stop after STEP 6 is complete and verified.
+Do NOT start STEP 7.
