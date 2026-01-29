@@ -2,6 +2,80 @@
 
 ---
 
+# STEP 4: Landing Page & Sales Funnel - Acceptance Proof
+
+## Landing Page URL
+- Path: `/` (root)
+- Served via Express proxy at port 5000
+
+## Copy Used
+
+### Headline
+"30 minutes to launch your business software"
+
+### Sub-headline
+"No code. No mistakes. Preview free. Pay only when you go live."
+
+### Primary CTA
+"Try free preview"
+
+### Secondary CTA
+"See how it works"
+
+## Page Sections
+
+| Section | Content |
+|---------|---------|
+| Hero | Headline, sub-headline, 2 CTAs |
+| Industry Selector | 3 cards: Hair Salon/Beauty, Clinic/Diagnostic, Courier/Delivery |
+| How It Works | 4 steps: Answer questions → Preview app → Share demo → Go live |
+| Trust Builders | Zero-Thinking Mode, $39/month pricing, Data control |
+| Bottom CTA | "Ready to build your business software?" with Try free preview button |
+
+## Funnel Steps
+
+1. **Landing Page (/)** → User sees hero + industry selector
+2. **Click "Try free preview"** → Redirects to `/dashboard/onboarding`
+3. **Complete onboarding questions** → 7-step wizard
+4. **Build complete** → Auto-redirect to `/dashboard/preview`
+5. **Preview page** → "Go Live" CTA card prominently displayed
+6. **Click Go Live** → Opens Deploy Wizard
+7. **Go Live attempt** → Paid Gate (STEP 3) triggers Paywall modal
+
+## SEO + Social Preview
+
+```html
+<title>Platform Factory - Launch Your Business Software in 30 Minutes</title>
+<meta name="description" content="No code. No mistakes. Preview free. Pay only when you go live. Build custom software for salons, clinics, and delivery businesses."/>
+<meta property="og:title" content="30 Minutes to Launch Your Business Software"/>
+<meta property="og:description" content="No code. No mistakes. Preview free. Pay only when you go live."/>
+<meta name="twitter:card" content="summary_large_image"/>
+```
+
+## Mobile-First Design
+
+- Responsive layout with mobile breakpoints
+- Hero CTAs stack vertically on mobile
+- Industry cards in single column on small screens
+- Touch-friendly button sizes
+
+## E2E Test Results
+
+✅ Landing page loads with correct headline
+✅ Industry selector shows 3 cards (salon, clinic, courier)
+✅ "How it works" section shows 4 steps
+✅ Trust builders section visible
+✅ "Try free preview" CTA visible and styled as primary
+✅ "See how it works" scrolls to #how-it-works
+✅ Industry cards clickable → redirect to onboarding with industry param
+✅ SEO meta tags present in HTML head
+✅ OG social preview tags present
+
+---
+**Status: STEP 4 CLOSED**
+
+---
+
 # STEP 3: Paid Gate for Go-Live - Acceptance Proof
 
 ## Payment Model

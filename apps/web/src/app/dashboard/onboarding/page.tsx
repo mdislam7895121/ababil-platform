@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { useSearchParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -104,6 +105,8 @@ export default function OnboardingPage() {
   const { token, currentTenant, membership } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<OnboardingAnswers>({
@@ -119,6 +122,13 @@ export default function OnboardingPage() {
   const [buildComplete, setBuildComplete] = useState(false);
   
   const isAdminOrOwner = membership?.role === "owner" || membership?.role === "admin";
+
+  useEffect(() => {
+    const industryParam = searchParams.get("industry");
+    if (industryParam && ["salon", "clinic", "courier"].includes(industryParam)) {
+      setAnswers(prev => ({ ...prev, businessType: industryParam as BusinessType }));
+    }
+  }, [searchParams]);
   
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -183,7 +193,10 @@ export default function OnboardingPage() {
     onSuccess: () => {
       setBuildComplete(true);
       queryClient.invalidateQueries({ queryKey: ["modules"] });
-      toast({ title: "Build complete", description: "Your platform is ready!" });
+      toast({ title: "Build complete", description: "Redirecting to preview..." });
+      setTimeout(() => {
+        router.push("/dashboard/preview");
+      }, 1500);
     },
     onError: (error: Error) => {
       toast({ title: "Build failed", description: error.message, variant: "destructive" });

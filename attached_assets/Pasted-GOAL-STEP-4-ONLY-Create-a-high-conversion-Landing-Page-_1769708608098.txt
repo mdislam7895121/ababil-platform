@@ -1,0 +1,88 @@
+GOAL (STEP 4 ONLY)
+Create a high-conversion Landing Page and a simple Sales Funnel that drives:
+Landing → Question-Based Onboarding → Live Preview → Paid Go-Live.
+
+This step is about CUSTOMER ACQUISITION, not new core features.
+
+SCOPE RULES
+1) Additive only. Do NOT refactor backend logic (builder, preview, billing).
+2) Reuse existing onboarding, preview, and paid gate flows.
+3) Mobile-first. Landing must look strong on phones.
+4) Hard-focus on ONLY 3 industries:
+   - Hair Salon / Beauty
+   - Clinic / Diagnostic
+   - Courier / Delivery
+5) Proof-first: screenshots + funnel evidence required.
+
+WHAT TO BUILD (FRONTEND)
+
+A) Public Landing Page (/)
+Headline (exact):
+“30 minutes to launch your business software”
+
+Sub-headline:
+“No code. No mistakes. Preview free. Pay only when you go live.”
+
+Industry Selector (3 cards only):
+- Hair Salon / Beauty
+- Clinic / Diagnostic
+- Courier / Delivery
+
+Primary CTA:
+“Try free preview”
+
+Secondary CTA:
+“See how it works” (scrolls to demo steps)
+
+B) How It Works Section (Simple, Visual)
+Show 4 steps only:
+1. Answer simple questions
+2. Instantly preview your app
+3. Share demo with your team
+4. Go live when ready (paid)
+
+C) Trust Builders
+- “Zero-Thinking Mode” explanation:
+  “The system blocks mistakes before you go live”
+- Cost transparency note:
+  “Most customers pay $39/month”
+- Security note:
+  “Your data stays in your control”
+
+D) Funnel Wiring (CRITICAL)
+- “Try free preview” →
+  Redirect to /dashboard/onboarding
+- After onboarding →
+  Auto-redirect to Preview screen
+- Preview →
+  Clear CTA: “Go Live”
+- Go Live →
+  Paid Gate (existing STEP 3 flow)
+
+NO other CTAs allowed.
+
+E) SEO + Sharing
+- Page title + meta description
+- Social preview (OG title/description)
+- Fast load, no heavy assets
+
+COPY RULES
+- Result-focused language only
+- No technical jargon
+- No feature lists longer than 3 bullets
+
+PROOF REQUIREMENTS (MANDATORY)
+Provide:
+1) Screenshot (mobile width): Landing hero section
+2) Screenshot: Industry selector + CTA
+3) Screenshot: “How it works” section
+4) Proof of funnel:
+   - Click “Try free preview” → onboarding page opens
+5) proof.md update:
+   - Landing page URL
+   - Funnel steps
+   - Copy used (headline + CTA)
+
+STOP CONDITION
+Stop after STEP 4 is complete and proven.
+Do NOT start STEP 5 (Marketing/Ads/Scale).

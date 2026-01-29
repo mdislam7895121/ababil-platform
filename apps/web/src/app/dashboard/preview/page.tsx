@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, UserCircle, Users, ShoppingCart, Copy, ExternalLink, AlertCircle, Clock, XCircle, CheckCircle } from "lucide-react";
+import { Eye, UserCircle, Users, ShoppingCart, Copy, ExternalLink, AlertCircle, Clock, XCircle, CheckCircle, Rocket, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 interface PreviewSession {
   id: string;
@@ -150,6 +151,30 @@ export default function PreviewPage() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Live Preview Mode</h1>
           <p className="text-muted-foreground">Create and manage shareable preview links for your platform</p>
         </div>
+
+        <Card className="bg-primary text-primary-foreground border-primary">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-primary-foreground/10 flex items-center justify-center">
+                  <Rocket className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Ready to go live?</h3>
+                  <p className="text-primary-foreground/80 text-sm">
+                    Shared previews with your team? Time to launch your platform.
+                  </p>
+                </div>
+              </div>
+              <Link href="/dashboard/deploy">
+                <Button variant="secondary" size="lg" data-testid="button-go-live-cta">
+                  Go Live
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
 
         {canManage ? (
           <Card>
