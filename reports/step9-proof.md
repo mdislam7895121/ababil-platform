@@ -125,7 +125,7 @@ This document provides proof of the Reliability & Auto-Recovery Layer implementa
 ═══════════════════════════════════════════════════════════════
 ```
 
-### Smoke Test (`smoke.sh`)
+### Smoke Test (`smoke.sh`) - ACTUAL OUTPUT
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -144,6 +144,8 @@ Checking Web (port 3000)...
   ✓ SMOKE TEST PASSED
 ═══════════════════════════════════════════════════════════════
 ```
+
+**Verified:** Smoke test ran successfully on January 29, 2026.
 
 ## Failure Detection Proof
 
