@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../index.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
+import { paymentsManualLimiter, paymentsApproveLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ const PLAN_PRICES: Record<string, { USD: number; BDT: number }> = {
 
 const PAYMENT_METHODS = ['bkash', 'nagad', 'rocket', 'bank', 'cash'];
 
-router.post('/manual', async (req: AuthRequest, res: Response) => {
+router.post('/manual', paymentsManualLimiter, async (req: AuthRequest, res: Response) => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const userId = req.user?.id;
@@ -157,7 +158,7 @@ router.get('/manual', requireRole('owner', 'admin'), async (req: AuthRequest, re
   }
 });
 
-router.post('/manual/:id/approve', requireRole('owner', 'admin'), async (req: AuthRequest, res: Response) => {
+router.post('/manual/:id/approve', paymentsApproveLimiter, requireRole('owner', 'admin'), async (req: AuthRequest, res: Response) => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const userId = req.user?.id;

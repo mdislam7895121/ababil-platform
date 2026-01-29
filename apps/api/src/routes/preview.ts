@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import { prisma } from '../index.js';
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
+import { previewValidateLimiter, previewDemoDataLimiter, previewCreateLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 const publicRouter = Router();
@@ -14,7 +15,7 @@ const createPreviewSchema = z.object({
   role: z.enum(PREVIEW_ROLES)
 });
 
-router.post('/create', requireRole('owner', 'admin'), async (req: AuthRequest, res) => {
+router.post('/create', previewCreateLimiter, requireRole('owner', 'admin'), async (req: AuthRequest, res) => {
   try {
     const parsed = createPreviewSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -56,7 +57,7 @@ router.post('/create', requireRole('owner', 'admin'), async (req: AuthRequest, r
   }
 });
 
-publicRouter.get('/validate', async (req, res) => {
+publicRouter.get('/validate', previewValidateLimiter, async (req, res) => {
   try {
     const token = req.query.token as string;
     if (!token) {
@@ -215,7 +216,7 @@ router.delete('/sessions/:id', requireRole('owner', 'admin'), async (req: AuthRe
   }
 });
 
-publicRouter.get('/demo-data', async (req, res) => {
+publicRouter.get('/demo-data', previewDemoDataLimiter, async (req, res) => {
   try {
     const token = req.query.token as string;
     if (!token) {

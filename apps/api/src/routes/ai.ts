@@ -5,6 +5,7 @@ import { aiChatSchema, PLAN_QUOTAS, type Plan } from '../../../../packages/share
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest } from '../middleware/auth.js';
 import { isSafeModeActive } from '../lib/safeMode.js';
+import { aiAssistantLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 
@@ -51,7 +52,7 @@ function getCacheKey(message: string): string {
 }
 
 // Chat endpoint
-router.post('/chat', async (req: AuthRequest, res) => {
+router.post('/chat', aiAssistantLimiter, async (req: AuthRequest, res) => {
   try {
     // Check Safe Mode - block AI when critical config missing
     const safeMode = isSafeModeActive();

@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { prisma } from '../index.js';
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
+import { billingCheckoutLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 
@@ -81,7 +82,7 @@ const checkoutSchema = z.object({
   planId: z.enum(['pro', 'business'])
 });
 
-router.post('/checkout', requireRole('owner', 'admin'), async (req: AuthRequest, res: Response) => {
+router.post('/checkout', billingCheckoutLimiter, requireRole('owner', 'admin'), async (req: AuthRequest, res: Response) => {
   try {
     const parsed = checkoutSchema.safeParse(req.body);
     if (!parsed.success) {

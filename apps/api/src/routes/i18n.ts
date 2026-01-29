@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../index.js';
 import { AuthRequest, authMiddleware, tenantMiddleware, requireRole } from '../middleware/auth.js';
 import { isSafeModeActive } from '../lib/safeMode.js';
+import { i18nGenerateLimiter } from '../middleware/rateLimit.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -119,7 +120,7 @@ router.get('/:lang', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/generate', authMiddleware, tenantMiddleware, requireRole('owner', 'admin'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/generate', i18nGenerateLimiter, authMiddleware, tenantMiddleware, requireRole('owner', 'admin'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const userId = req.user?.id;

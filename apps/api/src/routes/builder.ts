@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { TEMPLATES, classifyPromptToTemplate, extractEntitiesFromPrompt, generateBlueprint, generateSummary } from '../lib/templates.js';
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
+import { builderDraftLimiter, builderRunLimiter, builderApproveLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -50,7 +51,7 @@ function sanitizePromptForStorage(prompt: string): string {
     .replace(/\b(?:password|secret|api[_-]?key|token)\s*[:=]\s*\S+/gi, '[REDACTED_SECRET]');
 }
 
-router.post('/draft', requireRole('admin'), async (req: AuthRequest, res: Response) => {
+router.post('/draft', builderDraftLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
   try {
     const { prompt } = req.body;
 
@@ -132,7 +133,7 @@ router.post('/draft', requireRole('admin'), async (req: AuthRequest, res: Respon
   }
 });
 
-router.post('/approve', requireRole('admin'), async (req: AuthRequest, res: Response) => {
+router.post('/approve', builderApproveLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
   try {
     const { builderRequestId } = req.body;
 
@@ -178,7 +179,7 @@ router.post('/approve', requireRole('admin'), async (req: AuthRequest, res: Resp
   }
 });
 
-router.post('/run', requireRole('admin'), async (req: AuthRequest, res: Response) => {
+router.post('/run', builderRunLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
   try {
     const { builderRequestId } = req.body;
 

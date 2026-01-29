@@ -75,6 +75,9 @@ export const prisma = new PrismaClient();
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
 
+// Trust proxy for accurate client IP detection behind reverse proxies
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors());
 

@@ -5,13 +5,14 @@ import { prisma } from '../index.js';
 import { registerSchema, loginSchema } from '../../../../packages/shared/src/index.js';
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest, authMiddleware, tenantMiddleware } from '../middleware/auth.js';
+import { authLoginLimiter, authRegisterLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 const JWT_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
 const JWT_EXPIRES_IN = '7d';
 
 // Register new user with tenant
-router.post('/register', async (req, res) => {
+router.post('/register', authRegisterLimiter, async (req, res) => {
   try {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -92,7 +93,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', authLoginLimiter, async (req, res) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
