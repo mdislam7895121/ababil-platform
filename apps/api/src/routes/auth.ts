@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../index.js';
-import { registerSchema, loginSchema } from '@platform/shared';
+import { registerSchema, loginSchema } from '../../../../packages/shared/src/index.js';
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest, authMiddleware, tenantMiddleware } from '../middleware/auth.js';
 

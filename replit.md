@@ -35,10 +35,11 @@ Preferred communication style: Simple, everyday language.
 - **Secrets**: Encrypted at rest using AES-256-GCM
 
 ### Data Storage
-- **Database**: PostgreSQL with Drizzle ORM
-- **Schema Location**: `shared/schema.ts` - shared between client and server
-- **Migrations**: Drizzle Kit with `drizzle-kit push` command
-- **Core Entities**: Tenants, Users, Memberships, API Keys, Audit Logs, Secrets, Module Flags, Connector Configs, AI Usage/Cache
+- **Database**: PostgreSQL with Prisma ORM
+- **Schema Location**: `apps/api/prisma/schema.prisma` - Prisma schema for all models
+- **Prisma Client**: Located at `server/prisma.ts` - shared client instance
+- **Migrations**: Prisma with `npx prisma db push` command
+- **Core Entities**: Tenants, Users, Memberships, API Keys, Audit Logs, Module Flags, Connector Configs, AI Usage/Cache
 
 ### AI Integration
 - **Provider**: OpenAI (optional, gracefully degrades if API key missing)
@@ -59,7 +60,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Database
 - **PostgreSQL**: Primary data store, connection via `DATABASE_URL` environment variable
-- **Drizzle ORM**: Type-safe database queries and schema management
+- **Prisma ORM**: Type-safe database queries and schema management with auto-generated client
 
 ### AI Services
 - **OpenAI API**: Optional AI assistant functionality, requires `OPENAI_API_KEY`

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../index.js';
-import { CONNECTOR_KEYS, updateConnectorSchema } from '@platform/shared';
+import { CONNECTOR_KEYS, updateConnectorSchema } from '../../../../packages/shared/src/index.js';
 import { encrypt, decrypt } from '../lib/crypto.js';
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';

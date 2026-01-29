@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../index.js';
-import { MODULE_KEYS, toggleModuleSchema, updateModuleConfigSchema } from '@platform/shared';
+import { MODULE_KEYS, toggleModuleSchema, updateModuleConfigSchema } from '../../../../packages/shared/src/index.js';
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
 

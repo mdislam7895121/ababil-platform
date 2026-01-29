@@ -1,375 +1,330 @@
-import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
-import { db } from "./db";
-import {
-  tenants, users, memberships, apiKeys, auditLogs, secrets,
-  moduleFlags, webhookEndpoints, jobRuns, connectorConfigs, aiUsage, aiCache,
-  type Tenant, type InsertTenant, type User, type InsertUser,
-  type Membership, type InsertMembership, type ApiKey, type InsertApiKey,
-  type AuditLog, type InsertAuditLog, type Secret, type InsertSecret,
-  type ModuleFlag, type InsertModuleFlag, type ConnectorConfig, type InsertConnectorConfig,
-  type AiUsage, type InsertAiUsage, type AiCache, type InsertAiCache,
-  MODULE_KEYS, CONNECTOR_KEYS,
-} from "@shared/schema";
+import { prisma } from "./prisma";
 
-export interface IStorage {
-  // Tenants
-  getTenant(id: string): Promise<Tenant | undefined>;
-  getTenantBySlug(slug: string): Promise<Tenant | undefined>;
-  createTenant(tenant: InsertTenant): Promise<Tenant>;
-  updateTenant(id: string, data: Partial<Tenant>): Promise<Tenant | undefined>;
+// Storage interface for multi-tenant platform using Prisma
+
+export const storage = {
+  // ============================================================================
+  // USER OPERATIONS
+  // ============================================================================
   
-  // Users
-  getUser(id: string): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  
-  // Memberships
-  getMembership(id: string): Promise<Membership | undefined>;
-  getMembershipByUserAndTenant(userId: string, tenantId: string): Promise<Membership | undefined>;
-  getMembershipsByTenant(tenantId: string): Promise<(Membership & { user: User })[]>;
-  getMembershipsByUser(userId: string): Promise<(Membership & { tenant: Tenant })[]>;
-  createMembership(membership: InsertMembership): Promise<Membership>;
-  updateMembership(id: string, data: Partial<Membership>): Promise<Membership | undefined>;
-  deleteMembership(id: string): Promise<void>;
-  
-  // API Keys
-  getApiKey(id: string): Promise<ApiKey | undefined>;
-  getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined>;
-  getApiKeysByTenant(tenantId: string): Promise<ApiKey[]>;
-  createApiKey(apiKey: InsertApiKey): Promise<ApiKey>;
-  updateApiKeyLastUsed(id: string): Promise<void>;
-  deleteApiKey(id: string): Promise<void>;
-  
-  // Audit Logs
-  getAuditLogs(tenantId: string, limit: number, offset: number, action?: string): Promise<{ logs: (AuditLog & { actor: User | null })[]; total: number }>;
-  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
-  
-  // Secrets
-  getSecret(tenantId: string, key: string): Promise<Secret | undefined>;
-  upsertSecret(tenantId: string, key: string, encryptedValue: string): Promise<Secret>;
-  deleteSecret(tenantId: string, key: string): Promise<void>;
-  
-  // Module Flags
-  getModuleFlags(tenantId: string): Promise<ModuleFlag[]>;
-  getModuleFlag(tenantId: string, moduleKey: string): Promise<ModuleFlag | undefined>;
-  upsertModuleFlag(tenantId: string, moduleKey: string, enabled: boolean, config?: Record<string, unknown>): Promise<ModuleFlag>;
-  
-  // Connector Configs
-  getConnectorConfigs(tenantId: string): Promise<ConnectorConfig[]>;
-  getConnectorConfig(tenantId: string, connectorKey: string): Promise<ConnectorConfig | undefined>;
-  upsertConnectorConfig(tenantId: string, connectorKey: string, config: Record<string, unknown> | null, connected: boolean): Promise<ConnectorConfig>;
-  
-  // AI Usage
-  getAiUsage(tenantId: string, periodStart: Date): Promise<AiUsage | undefined>;
-  upsertAiUsage(tenantId: string, periodStart: Date, periodEnd: Date, requestCount: number, tokensIn: number, tokensOut: number): Promise<AiUsage>;
-  
-  // AI Cache
-  getAiCache(tenantId: string, promptHash: string): Promise<AiCache | undefined>;
-  createAiCache(cache: InsertAiCache): Promise<AiCache>;
-  
-  // Dashboard stats
-  getDashboardStats(tenantId: string): Promise<{
-    totalUsers: number;
-    totalApiKeys: number;
-    enabledModules: number;
-    connectedConnectors: number;
-  }>;
-}
+  async getUserById(id: string) {
+    return prisma.user.findUnique({ where: { id } });
+  },
 
-export class DatabaseStorage implements IStorage {
-  // Tenants
-  async getTenant(id: string): Promise<Tenant | undefined> {
-    const [tenant] = await db.select().from(tenants).where(eq(tenants.id, id));
-    return tenant;
-  }
+  async getUserByEmail(email: string) {
+    return prisma.user.findUnique({ where: { email } });
+  },
 
-  async getTenantBySlug(slug: string): Promise<Tenant | undefined> {
-    const [tenant] = await db.select().from(tenants).where(eq(tenants.slug, slug));
-    return tenant;
-  }
+  async createUser(data: { email: string; passwordHash: string; name: string; status?: string }) {
+    return prisma.user.create({
+      data: {
+        email: data.email,
+        passwordHash: data.passwordHash,
+        name: data.name,
+        status: data.status || "active",
+      },
+    });
+  },
 
-  async createTenant(tenant: InsertTenant): Promise<Tenant> {
-    const [created] = await db.insert(tenants).values(tenant).returning();
-    return created;
-  }
+  async updateUser(id: string, data: Partial<{ name: string; avatarUrl: string; status: string }>) {
+    return prisma.user.update({ where: { id }, data });
+  },
 
-  async updateTenant(id: string, data: Partial<Tenant>): Promise<Tenant | undefined> {
-    const [updated] = await db.update(tenants).set(data).where(eq(tenants.id, id)).returning();
-    return updated;
-  }
+  // ============================================================================
+  // TENANT OPERATIONS
+  // ============================================================================
 
-  // Users
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
-  }
+  async getTenantById(id: string) {
+    return prisma.tenant.findUnique({ where: { id } });
+  },
 
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
-  }
+  async getTenantBySlug(slug: string) {
+    return prisma.tenant.findUnique({ where: { slug } });
+  },
 
-  async createUser(user: InsertUser): Promise<User> {
-    const [created] = await db.insert(users).values(user).returning();
-    return created;
-  }
+  async createTenant(data: { name: string; slug: string; plan?: string; status?: string }) {
+    return prisma.tenant.create({
+      data: {
+        name: data.name,
+        slug: data.slug,
+        plan: data.plan || "free",
+      },
+    });
+  },
 
-  // Memberships
-  async getMembership(id: string): Promise<Membership | undefined> {
-    const [membership] = await db.select().from(memberships).where(eq(memberships.id, id));
-    return membership;
-  }
+  async updateTenant(id: string, data: Partial<{ name: string; plan: string }>) {
+    return prisma.tenant.update({ where: { id }, data });
+  },
 
-  async getMembershipByUserAndTenant(userId: string, tenantId: string): Promise<Membership | undefined> {
-    const [membership] = await db.select().from(memberships)
-      .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, tenantId)));
-    return membership;
-  }
+  // ============================================================================
+  // MEMBERSHIP OPERATIONS
+  // ============================================================================
 
-  async getMembershipsByTenant(tenantId: string): Promise<(Membership & { user: User })[]> {
-    const result = await db.select()
-      .from(memberships)
-      .leftJoin(users, eq(memberships.userId, users.id))
-      .where(eq(memberships.tenantId, tenantId))
-      .orderBy(desc(memberships.createdAt));
-    
-    return result.map(r => ({
-      ...r.memberships,
-      user: r.users!,
-    }));
-  }
+  async getMembershipsByUserId(userId: string) {
+    return prisma.membership.findMany({
+      where: { userId },
+      include: { tenant: true },
+    });
+  },
 
-  async getMembershipsByUser(userId: string): Promise<(Membership & { tenant: Tenant })[]> {
-    const result = await db.select()
-      .from(memberships)
-      .leftJoin(tenants, eq(memberships.tenantId, tenants.id))
-      .where(eq(memberships.userId, userId))
-      .orderBy(desc(memberships.createdAt));
-    
-    return result.map(r => ({
-      ...r.memberships,
-      tenant: r.tenants!,
-    }));
-  }
+  async getMembershipsByTenantId(tenantId: string) {
+    return prisma.membership.findMany({
+      where: { tenantId },
+      include: { user: { select: { id: true, email: true, name: true, avatarUrl: true, status: true } } },
+    });
+  },
 
-  async createMembership(membership: InsertMembership): Promise<Membership> {
-    const [created] = await db.insert(memberships).values(membership).returning();
-    return created;
-  }
+  async getMembership(tenantId: string, userId: string) {
+    return prisma.membership.findUnique({
+      where: { tenantId_userId: { tenantId, userId } },
+    });
+  },
 
-  async updateMembership(id: string, data: Partial<Membership>): Promise<Membership | undefined> {
-    const [updated] = await db.update(memberships).set(data).where(eq(memberships.id, id)).returning();
-    return updated;
-  }
+  async createMembership(data: { userId: string; tenantId: string; role: string }) {
+    return prisma.membership.create({ data });
+  },
 
-  async deleteMembership(id: string): Promise<void> {
-    await db.delete(memberships).where(eq(memberships.id, id));
-  }
+  async updateMembership(id: string, data: { role: string }) {
+    return prisma.membership.update({ where: { id }, data });
+  },
 
-  // API Keys
-  async getApiKey(id: string): Promise<ApiKey | undefined> {
-    const [apiKey] = await db.select().from(apiKeys).where(eq(apiKeys.id, id));
-    return apiKey;
-  }
+  async deleteMembership(id: string) {
+    return prisma.membership.delete({ where: { id } });
+  },
 
-  async getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined> {
-    const [apiKey] = await db.select().from(apiKeys).where(eq(apiKeys.keyHash, keyHash));
-    return apiKey;
-  }
+  // ============================================================================
+  // API KEY OPERATIONS
+  // ============================================================================
 
-  async getApiKeysByTenant(tenantId: string): Promise<ApiKey[]> {
-    return db.select().from(apiKeys).where(eq(apiKeys.tenantId, tenantId)).orderBy(desc(apiKeys.createdAt));
-  }
+  async getApiKeysByTenantId(tenantId: string) {
+    return prisma.apiKey.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+    });
+  },
 
-  async createApiKey(apiKey: InsertApiKey): Promise<ApiKey> {
-    const [created] = await db.insert(apiKeys).values(apiKey).returning();
-    return created;
-  }
+  async getApiKeyByHash(keyHash: string) {
+    return prisma.apiKey.findFirst({
+      where: {
+        keyHash,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+    });
+  },
 
-  async updateApiKeyLastUsed(id: string): Promise<void> {
-    await db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, id));
-  }
+  async createApiKey(data: {
+    tenantId: string;
+    name: string;
+    keyHash: string;
+    keyPrefix: string;
+    scopes?: string[];
+    expiresAt?: Date | null;
+  }) {
+    return prisma.apiKey.create({ data });
+  },
 
-  async deleteApiKey(id: string): Promise<void> {
-    await db.delete(apiKeys).where(eq(apiKeys.id, id));
-  }
+  async updateApiKeyLastUsed(id: string) {
+    return prisma.apiKey.update({
+      where: { id },
+      data: { lastUsedAt: new Date() },
+    });
+  },
 
-  // Audit Logs
-  async getAuditLogs(tenantId: string, limit: number, offset: number, action?: string): Promise<{ logs: (AuditLog & { actor: User | null })[]; total: number }> {
-    const conditions = [eq(auditLogs.tenantId, tenantId)];
-    if (action) {
-      conditions.push(ilike(auditLogs.action, `${action}%`));
-    }
+  async deleteApiKey(id: string) {
+    return prisma.apiKey.delete({ where: { id } });
+  },
 
-    const [countResult] = await db.select({ count: sql<number>`count(*)` })
-      .from(auditLogs)
-      .where(and(...conditions));
-    
-    const result = await db.select()
-      .from(auditLogs)
-      .leftJoin(users, eq(auditLogs.actorUserId, users.id))
-      .where(and(...conditions))
-      .orderBy(desc(auditLogs.createdAt))
-      .limit(limit)
-      .offset(offset);
-    
-    return {
-      logs: result.map(r => ({
-        ...r.audit_logs,
-        actor: r.users,
-      })),
-      total: Number(countResult.count),
-    };
-  }
+  // ============================================================================
+  // MODULE FLAGS OPERATIONS
+  // ============================================================================
 
-  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
-    const [created] = await db.insert(auditLogs).values(log).returning();
-    return created;
-  }
+  async getModuleFlagsByTenantId(tenantId: string) {
+    return prisma.moduleFlag.findMany({ where: { tenantId } });
+  },
 
-  // Secrets
-  async getSecret(tenantId: string, key: string): Promise<Secret | undefined> {
-    const [secret] = await db.select().from(secrets)
-      .where(and(eq(secrets.tenantId, tenantId), eq(secrets.key, key)));
-    return secret;
-  }
+  async getModuleFlag(tenantId: string, key: string) {
+    return prisma.moduleFlag.findUnique({
+      where: { tenantId_key: { tenantId, key } },
+    });
+  },
 
-  async upsertSecret(tenantId: string, key: string, encryptedValue: string): Promise<Secret> {
-    const existing = await this.getSecret(tenantId, key);
-    if (existing) {
-      const [updated] = await db.update(secrets)
-        .set({ encryptedValue })
-        .where(eq(secrets.id, existing.id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(secrets)
-      .values({ tenantId, key, encryptedValue })
-      .returning();
-    return created;
-  }
+  async upsertModuleFlag(tenantId: string, key: string, data: { enabled?: boolean; config?: any }) {
+    return prisma.moduleFlag.upsert({
+      where: { tenantId_key: { tenantId, key } },
+      update: data,
+      create: { tenantId, key, enabled: data.enabled ?? false, config: data.config },
+    });
+  },
 
-  async deleteSecret(tenantId: string, key: string): Promise<void> {
-    await db.delete(secrets).where(and(eq(secrets.tenantId, tenantId), eq(secrets.key, key)));
-  }
+  // ============================================================================
+  // CONNECTOR CONFIG OPERATIONS
+  // ============================================================================
 
-  // Module Flags
-  async getModuleFlags(tenantId: string): Promise<ModuleFlag[]> {
-    return db.select().from(moduleFlags).where(eq(moduleFlags.tenantId, tenantId));
-  }
+  async getConnectorConfigsByTenantId(tenantId: string) {
+    return prisma.connectorConfig.findMany({ where: { tenantId } });
+  },
 
-  async getModuleFlag(tenantId: string, moduleKey: string): Promise<ModuleFlag | undefined> {
-    const [flag] = await db.select().from(moduleFlags)
-      .where(and(eq(moduleFlags.tenantId, tenantId), eq(moduleFlags.moduleKey, moduleKey)));
-    return flag;
-  }
+  async getConnectorConfig(tenantId: string, connectorKey: string) {
+    return prisma.connectorConfig.findUnique({
+      where: { tenantId_connectorKey: { tenantId, connectorKey } },
+    });
+  },
 
-  async upsertModuleFlag(tenantId: string, moduleKey: string, enabled: boolean, config?: Record<string, unknown>): Promise<ModuleFlag> {
-    const existing = await this.getModuleFlag(tenantId, moduleKey);
-    if (existing) {
-      const [updated] = await db.update(moduleFlags)
-        .set({ enabled, configJson: config })
-        .where(eq(moduleFlags.id, existing.id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(moduleFlags)
-      .values({ tenantId, moduleKey, enabled, configJson: config })
-      .returning();
-    return created;
-  }
+  async upsertConnectorConfig(
+    tenantId: string,
+    connectorKey: string,
+    data: { enabled?: boolean; configEncrypted?: string | null }
+  ) {
+    return prisma.connectorConfig.upsert({
+      where: { tenantId_connectorKey: { tenantId, connectorKey } },
+      update: data,
+      create: { tenantId, connectorKey, enabled: data.enabled ?? false, configEncrypted: data.configEncrypted },
+    });
+  },
 
-  // Connector Configs
-  async getConnectorConfigs(tenantId: string): Promise<ConnectorConfig[]> {
-    return db.select().from(connectorConfigs).where(eq(connectorConfigs.tenantId, tenantId));
-  }
+  // ============================================================================
+  // AUDIT LOG OPERATIONS
+  // ============================================================================
 
-  async getConnectorConfig(tenantId: string, connectorKey: string): Promise<ConnectorConfig | undefined> {
-    const [config] = await db.select().from(connectorConfigs)
-      .where(and(eq(connectorConfigs.tenantId, tenantId), eq(connectorConfigs.connectorKey, connectorKey)));
-    return config;
-  }
+  async getAuditLogsByTenantId(tenantId: string, limit = 50, offset = 0) {
+    const [logs, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        where: { tenantId },
+        include: { actor: { select: { id: true, email: true, name: true } } },
+        orderBy: { createdAt: "desc" },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.auditLog.count({ where: { tenantId } }),
+    ]);
+    return { logs, total };
+  },
 
-  async upsertConnectorConfig(tenantId: string, connectorKey: string, config: Record<string, unknown> | null, connected: boolean): Promise<ConnectorConfig> {
-    const existing = await this.getConnectorConfig(tenantId, connectorKey);
-    if (existing) {
-      const [updated] = await db.update(connectorConfigs)
-        .set({ configJson: config, connected, updatedAt: new Date() })
-        .where(eq(connectorConfigs.id, existing.id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(connectorConfigs)
-      .values({ tenantId, connectorKey, configJson: config, connected })
-      .returning();
-    return created;
-  }
+  async createAuditLog(data: {
+    tenantId: string;
+    actorUserId?: string;
+    action: string;
+    entityType: string;
+    entityId?: string;
+    metadata?: any;
+  }) {
+    return prisma.auditLog.create({ data });
+  },
 
-  // AI Usage
-  async getAiUsage(tenantId: string, periodStart: Date): Promise<AiUsage | undefined> {
-    const [usage] = await db.select().from(aiUsage)
-      .where(and(eq(aiUsage.tenantId, tenantId), eq(aiUsage.periodStart, periodStart)));
-    return usage;
-  }
+  // ============================================================================
+  // AI USAGE OPERATIONS
+  // ============================================================================
 
-  async upsertAiUsage(tenantId: string, periodStart: Date, periodEnd: Date, requestCount: number, tokensIn: number, tokensOut: number): Promise<AiUsage> {
-    const existing = await this.getAiUsage(tenantId, periodStart);
-    if (existing) {
-      const [updated] = await db.update(aiUsage)
-        .set({
-          requestCount: existing.requestCount + requestCount,
-          tokensIn: existing.tokensIn + tokensIn,
-          tokensOut: existing.tokensOut + tokensOut,
-        })
-        .where(eq(aiUsage.id, existing.id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(aiUsage)
-      .values({ tenantId, periodStart, periodEnd, requestCount, tokensIn, tokensOut })
-      .returning();
-    return created;
-  }
+  async getAiUsageStats(tenantId: string, userId?: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
-  // AI Cache
-  async getAiCache(tenantId: string, promptHash: string): Promise<AiCache | undefined> {
-    const [cache] = await db.select().from(aiCache)
-      .where(and(
-        eq(aiCache.tenantId, tenantId),
-        eq(aiCache.promptHash, promptHash),
-        sql`${aiCache.expiresAt} > NOW()`
-      ));
-    return cache;
-  }
+    const where = userId ? { tenantId, userId } : { tenantId };
 
-  async createAiCache(cache: InsertAiCache): Promise<AiCache> {
-    const [created] = await db.insert(aiCache).values(cache).returning();
-    return created;
-  }
+    const [dailyUsage, monthlyUsage] = await Promise.all([
+      prisma.aiUsage.aggregate({
+        where: { ...where, createdAt: { gte: today } },
+        _count: true,
+        _sum: { inputTokens: true, outputTokens: true, estimatedCost: true },
+      }),
+      prisma.aiUsage.aggregate({
+        where: { ...where, createdAt: { gte: monthStart } },
+        _count: true,
+        _sum: { inputTokens: true, outputTokens: true, estimatedCost: true },
+      }),
+    ]);
 
-  // Dashboard stats
-  async getDashboardStats(tenantId: string): Promise<{
-    totalUsers: number;
-    totalApiKeys: number;
-    enabledModules: number;
-    connectedConnectors: number;
-  }> {
-    const [usersCount] = await db.select({ count: sql<number>`count(*)` })
-      .from(memberships).where(eq(memberships.tenantId, tenantId));
-    const [apiKeysCount] = await db.select({ count: sql<number>`count(*)` })
-      .from(apiKeys).where(eq(apiKeys.tenantId, tenantId));
-    const [modulesCount] = await db.select({ count: sql<number>`count(*)` })
-      .from(moduleFlags).where(and(eq(moduleFlags.tenantId, tenantId), eq(moduleFlags.enabled, true)));
-    const [connectorsCount] = await db.select({ count: sql<number>`count(*)` })
-      .from(connectorConfigs).where(and(eq(connectorConfigs.tenantId, tenantId), eq(connectorConfigs.connected, true)));
+    return { dailyUsage, monthlyUsage };
+  },
+
+  async getDailyAiUsageCount(tenantId: string, userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return prisma.aiUsage.count({
+      where: { tenantId, userId, createdAt: { gte: today } },
+    });
+  },
+
+  async getMonthlyAiUsageCount(tenantId: string, userId: string) {
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+    return prisma.aiUsage.count({
+      where: { tenantId, userId, createdAt: { gte: monthStart } },
+    });
+  },
+
+  async createAiUsage(data: {
+    tenantId: string;
+    userId: string;
+    model: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    estimatedCost?: number;
+  }) {
+    return prisma.aiUsage.create({
+      data: {
+        tenantId: data.tenantId,
+        userId: data.userId,
+        model: data.model,
+        inputTokens: data.inputTokens || 0,
+        outputTokens: data.outputTokens || 0,
+        estimatedCost: data.estimatedCost || 0,
+      },
+    });
+  },
+
+  // ============================================================================
+  // AI CACHE OPERATIONS
+  // ============================================================================
+
+  async getAiCacheByHash(tenantId: string, promptHash: string) {
+    return prisma.aiCache.findUnique({
+      where: { tenantId_promptHash: { tenantId, promptHash } },
+    });
+  },
+
+  async upsertAiCache(data: {
+    tenantId: string;
+    promptHash: string;
+    response: string;
+    model: string;
+    expiresAt: Date;
+  }) {
+    return prisma.aiCache.upsert({
+      where: { tenantId_promptHash: { tenantId: data.tenantId, promptHash: data.promptHash } },
+      update: { response: data.response, expiresAt: data.expiresAt },
+      create: data,
+    });
+  },
+
+  // ============================================================================
+  // DASHBOARD STATS
+  // ============================================================================
+
+  async getDashboardStats(tenantId: string) {
+    const [userCount, apiKeyCount, enabledModules, enabledConnectors, recentActivity] = await Promise.all([
+      prisma.membership.count({ where: { tenantId } }),
+      prisma.apiKey.count({ where: { tenantId } }),
+      prisma.moduleFlag.count({ where: { tenantId, enabled: true } }),
+      prisma.connectorConfig.count({ where: { tenantId, enabled: true } }),
+      prisma.auditLog.findMany({
+        where: { tenantId },
+        include: { actor: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+    ]);
 
     return {
-      totalUsers: Number(usersCount.count),
-      totalApiKeys: Number(apiKeysCount.count),
-      enabledModules: Number(modulesCount.count),
-      connectedConnectors: Number(connectorsCount.count),
+      users: userCount,
+      apiKeys: apiKeyCount,
+      modules: enabledModules,
+      connectors: enabledConnectors,
+      recentActivity,
     };
-  }
-}
+  },
+};
 
-export const storage = new DatabaseStorage();
+export type IStorage = typeof storage;

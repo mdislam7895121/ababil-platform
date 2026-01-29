@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import { prisma } from '../index.js';
-import { aiChatSchema, PLAN_QUOTAS, type Plan } from '@platform/shared';
+import { aiChatSchema, PLAN_QUOTAS, type Plan } from '../../../../packages/shared/src/index.js';
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest } from '../middleware/auth.js';
 

@@ -108,7 +108,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       
       if (apiKey) {
         await storage.updateApiKeyLastUsed(apiKey.id);
-        const tenant = await storage.getTenant(apiKey.tenantId);
+        const tenant = await storage.getTenantById(apiKey.tenantId);
         if (tenant) {
           req.tenantId = tenant.id;
           req.tenant = tenant;
@@ -124,16 +124,16 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       const decoded = verifyToken(token);
       
       if (decoded) {
-        const user = await storage.getUser(decoded.userId);
+        const user = await storage.getUserById(decoded.userId);
         if (user) {
           req.user = user;
           
           // Get tenant from header
           const tenantId = req.headers["x-tenant-id"] as string;
           if (tenantId) {
-            const membership = await storage.getMembershipByUserAndTenant(user.id, tenantId);
+            const membership = await storage.getMembership(tenantId, user.id);
             if (membership) {
-              const tenant = await storage.getTenant(tenantId);
+              const tenant = await storage.getTenantById(tenantId);
               req.tenant = tenant;
               req.tenantId = tenantId;
               req.membership = membership;

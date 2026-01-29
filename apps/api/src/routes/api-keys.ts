@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../index.js';
-import { createApiKeySchema } from '@platform/shared';
+import { createApiKeySchema } from '../../../../packages/shared/src/index.js';
 import { generateApiKey, hashApiKey } from '../lib/crypto.js';
 import { logAudit } from '../lib/audit.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
