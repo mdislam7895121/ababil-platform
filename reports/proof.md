@@ -671,16 +671,20 @@ curl -X POST http://localhost:5000/api/deploy/verify \
 ```json
 {
   "status": "failed",
-  "deployRunId": "d2b8f927-b0ab-4f23-996a-d1264ef36d49",
+  "deployRunId": "a963b48d-3f39-4c60-ad09-700e999992fd",
   "results": {
-    "env_vars": {"passed": false, "message": "DATABASE_URL: set, SESSION_SECRET: set, ENCRYPTION_KEY: missing"},
-    "db_connectivity": {"passed": true, "message": "Database connection successful"},
+    "config_saved": {"passed": true, "message": "Deploy configuration saved with encrypted secrets"},
     "health_check": {"passed": false, "message": "Health check failed: 404"},
     "ready_check": {"passed": false, "message": "Ready check failed: 404"}
   }
 }
 ```
-**Status:** PASS - Verification runs correctly (test URL expected to fail)
+**Status:** PASS - Verification runs correctly:
+- `config_saved`: Confirms encrypted secrets are stored
+- `health_check`: Tests target deployment's /api/health endpoint
+- `ready_check`: Tests target deployment's /api/ready endpoint (verifies DB connectivity on target)
+
+Note: Health and ready checks fail because test URL (https://test-deploy.replit.app) doesn't exist - this is expected behavior.
 
 ### 25. Get Deploy Runs (History)
 ```bash
