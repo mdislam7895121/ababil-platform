@@ -1,0 +1,26 @@
+{
+  "description": "Test fixture for onboarding flow verification",
+  "version": "1.0.0",
+  "testCase": "golden_flow_onboarding",
+  "answers": {
+    "businessName": "Test Business Co",
+    "industry": "ecommerce",
+    "businessType": "retail",
+    "teamSize": "2-10",
+    "primaryGoal": "sell_online",
+    "features": ["products", "payments", "inventory"],
+    "currency": "USD",
+    "language": "en",
+    "timezone": "UTC"
+  },
+  "expectedOutcome": {
+    "tenantCreated": true,
+    "modulesEnabled": ["ecommerce", "analytics"],
+    "presetApplied": "ecommerce_retail"
+  },
+  "metadata": {
+    "createdAt": "2024-01-01T00:00:00Z",
+    "author": "verification-system",
+    "goldenFlow": "F1"
+  }
+}

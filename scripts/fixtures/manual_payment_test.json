@@ -1,0 +1,48 @@
+{
+  "description": "Test fixture for manual payment approval flow",
+  "version": "1.0.0",
+  "testCase": "golden_flow_payment",
+  "testTenant": {
+    "id": "test-tenant-verify",
+    "name": "Verification Test Tenant",
+    "plan": "pro"
+  },
+  "paymentSubmission": {
+    "method": "bank",
+    "amount": 39.00,
+    "currency": "USD",
+    "reference": "TEST-VERIFY-001",
+    "notes": "Automated verification test payment"
+  },
+  "expectedFlow": {
+    "step1": {
+      "action": "submit_payment",
+      "endpoint": "POST /api/payments/manual/submit",
+      "expectedStatus": 201,
+      "expectedResponse": {
+        "status": "pending_verification"
+      }
+    },
+    "step2": {
+      "action": "admin_approve",
+      "endpoint": "POST /api/payments/manual/:id/approve",
+      "expectedStatus": 200,
+      "expectedResponse": {
+        "status": "approved"
+      }
+    },
+    "step3": {
+      "action": "verify_billing",
+      "endpoint": "GET /api/billing/status",
+      "expectedResponse": {
+        "canGoLive": true,
+        "planActive": true
+      }
+    }
+  },
+  "metadata": {
+    "createdAt": "2024-01-01T00:00:00Z",
+    "author": "verification-system",
+    "goldenFlow": "F4"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "description": "Test fixture for preview session creation and validation",
+  "version": "1.0.0",
+  "testCase": "golden_flow_preview",
+  "createSession": {
+    "role": "admin",
+    "expiresInHours": 24,
+    "demoData": true
+  },
+  "expectedFlow": {
+    "step1": {
+      "action": "create_preview",
+      "endpoint": "POST /api/preview/create",
+      "expectedStatus": 201,
+      "expectedResponse": {
+        "hasToken": true,
+        "hasUrl": true,
+        "expiresAt": "ISO8601 timestamp"
+      }
+    },
+    "step2": {
+      "action": "validate_preview",
+      "endpoint": "GET /api/preview/validate?token=:token",
+      "expectedStatus": 200,
+      "expectedResponse": {
+        "valid": true,
+        "role": "admin"
+      }
+    },
+    "step3": {
+      "action": "get_demo_data",
+      "endpoint": "GET /api/preview/demo-data",
+      "expectedStatus": 200,
+      "expectedResponse": {
+        "hasDemoProducts": true,
+        "hasDemoUsers": true
+      }
+    }
+  },
+  "metadata": {
+    "createdAt": "2024-01-01T00:00:00Z",
+    "author": "verification-system",
+    "goldenFlow": "F2"
+  }
+}

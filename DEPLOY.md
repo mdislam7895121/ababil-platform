@@ -156,6 +156,59 @@ npm start
 npm run dev
 ```
 
+## Pre-Deployment Verification
+
+Before deploying, run the verification scripts to ensure everything is working:
+
+### Full Verification (Recommended)
+
+```bash
+./scripts/verify.sh
+```
+
+This runs comprehensive checks:
+1. **Node/Dependencies** - Verifies Node.js and npm are available
+2. **API Typecheck** - Runs TypeScript validation on the API
+3. **Web Build Check** - Validates Next.js configuration
+4. **Prisma Validation** - Ensures database schema is valid
+5. **API Smoke Tests** - Tests core endpoints
+6. **Golden Flow Checks** - Validates critical user flows
+
+### Quick Smoke Test
+
+```bash
+./scripts/smoke.sh
+```
+
+Fast health check for essential services only.
+
+### When Verification Fails
+
+Run the recovery tool:
+
+```bash
+./scripts/recover.sh
+```
+
+Options:
+1. Restart services (kill ports 3000/5000)
+2. Regenerate Prisma client
+3. Re-run preflight check
+4. Run smoke test
+5. Run full verification
+6. Check environment variables
+
+### Golden Flows
+
+These critical user journeys are verified:
+
+| Flow | Description |
+|------|-------------|
+| F1 | Landing → Onboarding |
+| F2 | Onboarding → Preview |
+| F3 | Preview → Billing |
+| F4 | Payment → Go-Live |
+
 ## Health Checks
 
 Configure your hosting provider to check these endpoints:

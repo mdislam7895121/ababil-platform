@@ -1,0 +1,85 @@
+STEP 9 (Reliability & Auto-Recovery Layer) — IMPLEMENTATION PROMPT
+Goal:
+Make the platform self-verifying and regression-resistant so customers can build + deploy without getting stuck.
+This step adds detection, guardrails, and safe recovery. No new product features.
+
+NON-NEGOTIABLE RULES
+1) Additive only. Do NOT refactor existing working code.
+2) Proof-first: no “done” without logs, outputs, and screenshots.
+3) Golden Flows must never break:
+   F1 Landing → Onboarding
+   F2 Onboarding → Preview
+   F3 Preview → Billing/Paywall
+   F4 Payment (Stripe or Manual approve) → Go-Live unlocked (canGoLive=true)
+4) If a change breaks a golden flow, agent must:
+   - stop
+   - isolate the breaking commit
+   - propose minimal patch
+   - re-run verification
+5) Everything must run on Replit reliably.
+
+WHAT TO BUILD
+
+A) One-command Verification Script (REQUIRED)
+Create: scripts/verify.sh
+Runs in this exact order and fails fast:
+1) Node/Deps sanity: node -v, npm -v
+2) API typecheck/build: npm run -w apps/api build OR tsc --noEmit (use current repo scripts)
+3) Web build: npm run -w apps/web build (or next build)
+4) Prisma: prisma validate + (optional) prisma migrate status (no destructive commands)
+5) API smoke tests (start API, wait, curl endpoints):
+   - GET /api/health
+   - GET /api/ready
+   - GET /api/i18n/languages
+   - GET /api/billing/plans
+   - GET /api/revenue/summary
+6) Golden Flow API checks (non-UI):
+   - Create onboarding draft (or builder draft) with test payload
+   - Create preview session, validate token
+   - Manual payment submit + approve (test tenant), verify billing/status canGoLive=true
+7) Print a concise PASS/FAIL report
+
+B) Smoke Script (FAST)
+Create: scripts/smoke.sh
+Only checks:
+- /api/health, /api/ready, web homepage / (port 3000), /login (port 3000)
+
+C) Regression Snapshot (Golden Flow Fixtures)
+Create: scripts/fixtures/
+- onboarding_answers.json
+- manual_payment_test.json
+So tests are repeatable.
+
+D) Safe Recovery Commands (Customer-friendly)
+Create: scripts/recover.sh
+Options:
+1) Restart services cleanly (kill ports 3000/5000 safely, restart dev-all)
+2) Re-run preflight and show actionable output
+3) Re-run smoke checks
+
+E) Documentation
+Update: DEPLOY.md and reports/proof.md
+Add:
+- How customers run verify before go-live
+- What to do when verify fails (recover.sh)
+
+F) OPTIONAL (If repo supports GitHub Actions without breaking)
+Add a minimal CI workflow that runs scripts/verify.sh on PR.
+If GitHub Actions not available, skip and document.
+
+PROOF REQUIRED (MANDATORY)
+1) Paste full output of:
+   - ./scripts/verify.sh (PASS)
+   - ./scripts/smoke.sh (PASS)
+2) Show that a deliberate failure is detected:
+   - Temporarily break one endpoint check, show verify fails
+   - Revert the break, show verify passes again
+3) Provide file list of newly added scripts and fixtures
+4) Update reports/step9-proof.md with:
+   - verification outputs
+   - recovery instructions
+   - golden flow coverage list
+
+STOP CONDITION
+Stop after STEP 9 proof is delivered.
+Do NOT start STEP 10 (Jobs/Queue) until STEP 9 is accepted.
