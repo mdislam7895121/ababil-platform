@@ -11,6 +11,7 @@ A production-grade multi-tenant Digital Platform Factory for building and managi
 - **Connector Hub**: Third-party integrations with encrypted secrets (Stripe, Email, Storage, Push)
 - **AI Assistant**: Optional OpenAI integration with cost controls (quotas, caching, mock mode)
 - **Prompt Builder Engine**: Build from natural language prompts - automatically configures modules, workflows, and sample data
+- **Deploy Wizard**: Self-serve deployment wizard with environment validation and live URL verification
 - **Audit Logging**: Comprehensive activity tracking
 - **Professional UI**: Enterprise admin dashboard with light/dark mode
 
@@ -119,6 +120,13 @@ A production-grade multi-tenant Digital Platform Factory for building and managi
 - `POST /api/builder/run` - Execute build
 - `GET /api/builder/requests` - List build requests
 
+### Deploy Wizard
+- `GET /api/deploy/config` - Get current deploy configuration
+- `POST /api/deploy/config` - Save deploy configuration
+- `POST /api/deploy/verify` - Run verification checks
+- `GET /api/deploy/runs` - List verification runs
+- `GET /api/deploy/checklist` - Get deploy checklist
+
 ## Security
 
 - **Authentication**: JWT tokens with secure signing
@@ -131,6 +139,7 @@ A production-grade multi-tenant Digital Platform Factory for building and managi
 ## Deployment
 
 See [DEPLOY.md](./DEPLOY.md) for detailed deployment instructions including:
+- **Deploy Wizard**: Self-serve wizard at `/dashboard/deploy`
 - Environment variable configuration
 - Database setup
 - Hosting provider guides (Replit, Render, Railway, Fly.io)

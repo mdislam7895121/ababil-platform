@@ -163,6 +163,59 @@ Configure your hosting provider to check these endpoints:
 | Endpoint | Purpose | Expected Response |
 |----------|---------|-------------------|
 | `GET /api/health` | Application health | `200 OK` with `{"status":"ok"}` |
+| `GET /api/ready` | Database connectivity | `200 OK` with `{"status":"ready","database":"connected"}` |
+
+## Deploy Wizard (Self-Serve)
+
+The Digital Platform Factory includes a built-in **Deploy Wizard** that helps you go live with minimal steps.
+
+### Access the Wizard
+
+1. Log in to your dashboard at `/dashboard`
+2. Navigate to **Deploy** in the sidebar
+3. Follow the 6-step wizard
+
+### Wizard Steps
+
+**Step 1: Choose Provider**
+- Select your hosting provider (Replit, Render, Railway, Fly.io, or Docker)
+- Replit is recommended for one-click deployment
+
+**Step 2: Enter Live App URL**
+- Enter the public URL where your app will be accessible
+- Example: `https://myapp.replit.app` or `https://myapp.onrender.com`
+
+**Step 3: Database & Secrets**
+- Enter your production `DATABASE_URL`
+- Enter your `JWT_SECRET` (SESSION_SECRET)
+- These values are encrypted and never shown again
+
+**Step 4: Review & Save**
+- Confirm your settings
+- Click "Save Configuration" to securely store your deployment config
+
+**Step 5: Deploy Checklist**
+- View required environment variables
+- Copy the migration command: `npx prisma migrate deploy`
+- Copy the start command: `npm run start`
+
+**Step 6: Verify Deployment**
+- Click "Run Verification" to test your live URL
+- The wizard checks:
+  - Environment variables are set
+  - Database connectivity
+  - `/api/health` endpoint responds
+  - `/api/ready` endpoint responds
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/deploy/config` | GET | Get current deploy configuration |
+| `/api/deploy/config` | POST | Save deploy configuration |
+| `/api/deploy/verify` | POST | Run verification checks |
+| `/api/deploy/runs` | GET | List verification history |
+| `/api/deploy/checklist` | GET | Get deploy checklist |
 
 ## Post-Deployment Verification
 
