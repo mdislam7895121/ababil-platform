@@ -60,6 +60,20 @@ interface VerifyResult {
   results: Record<string, { passed: boolean; message: string }>;
 }
 
+interface GeneratedSecrets {
+  ok: boolean;
+  secrets: Array<{ key: string; value: string; description: string }>;
+  warning: string;
+  instructions: string[];
+}
+
+interface PreflightResult {
+  canDeploy: boolean;
+  message: string;
+  checks: Array<{ key: string; label: string; passed: boolean; message: string; blocking: boolean }>;
+  blockingIssues: Array<{ key: string; label: string; message: string }>;
+}
+
 const PROVIDERS = [
   { value: "REPLIT", label: "Replit", recommended: true },
   { value: "RENDER", label: "Render", recommended: false },
@@ -78,6 +92,8 @@ export default function DeployPage() {
   const [appUrl, setAppUrl] = useState("");
   const [databaseUrl, setDatabaseUrl] = useState("");
   const [jwtSecret, setJwtSecret] = useState("");
+  const [generatedSecrets, setGeneratedSecrets] = useState<GeneratedSecrets | null>(null);
+  const [preflightResult, setPreflightResult] = useState<PreflightResult | null>(null);
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -171,6 +187,65 @@ export default function DeployPage() {
     navigator.clipboard.writeText(text);
     toast({ title: "Copied", description: "Copied to clipboard" });
   };
+
+  const generateSecretsMutation = useMutation<GeneratedSecrets>({
+    mutationFn: async () => {
+      const res = await fetch("/api/env/generate", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ type: "all" }),
+      });
+      if (!res.ok) throw new Error("Failed to generate secrets");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setGeneratedSecrets(data);
+      toast({ title: "Secrets generated", description: data.warning });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const preflightMutation = useMutation<PreflightResult>({
+    mutationFn: async () => {
+      const res = await fetch("/api/deploy/preflight", {
+        method: "POST",
+        headers,
+      });
+      if (!res.ok) throw new Error("Pre-flight check failed");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setPreflightResult(data);
+      if (data.canDeploy) {
+        toast({ title: "Pre-flight passed", description: "Ready to deploy!" });
+      } else {
+        toast({ title: "Pre-flight failed", description: data.message, variant: "destructive" });
+      }
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const goLiveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/deploy/go-live", {
+        method: "POST",
+        headers,
+      });
+      if (!res.ok) throw new Error("Failed to mark as live");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["deploy-config"] });
+      toast({ title: "You're LIVE!", description: "Your platform is now publicly accessible." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   if (configLoading) {
     return (
@@ -305,6 +380,41 @@ export default function DeployPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Need secure secrets?</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => generateSecretsMutation.mutate()}
+                    disabled={generateSecretsMutation.isPending}
+                    data-testid="generate-secrets"
+                  >
+                    {generateSecretsMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Generate Secrets"
+                    )}
+                  </Button>
+                </div>
+                {generatedSecrets && (
+                  <div className="space-y-2 mt-3">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{generatedSecrets.warning}</p>
+                    {generatedSecrets.secrets.map((secret) => (
+                      <div key={secret.key} className="flex items-center justify-between p-2 bg-background rounded border">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-mono font-medium">{secret.key}</span>
+                          <p className="text-xs text-muted-foreground truncate">{secret.value}</p>
+                        </div>
+                        <Button size="icon" variant="ghost" onClick={() => copyToClipboard(secret.value)} data-testid={`copy-${secret.key.toLowerCase()}`}>
+                          <ClipboardCopy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <Label htmlFor="databaseUrl">DATABASE_URL</Label>
                 <Input
@@ -327,7 +437,7 @@ export default function DeployPage() {
                   data-testid="input-jwt-secret"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Minimum 16 characters. Used to sign JWT tokens.
+                  Minimum 16 characters. Use the generated value or enter your own.
                 </p>
               </div>
               <div className="flex gap-2">
@@ -437,7 +547,60 @@ export default function DeployPage() {
                 </div>
               </div>
 
-              <Button onClick={() => setStep(6)} className="w-full" data-testid="next-step-6">
+              <div>
+                <h3 className="font-medium mb-2">5. Pre-Flight Check</h3>
+                <Button
+                  variant="outline"
+                  onClick={() => preflightMutation.mutate()}
+                  disabled={preflightMutation.isPending}
+                  className="w-full mb-3"
+                  data-testid="run-preflight"
+                >
+                  {preflightMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Shield className="h-4 w-4 mr-2" />
+                  )}
+                  Run Pre-Flight Check
+                </Button>
+                {preflightResult && (
+                  <div className="space-y-2">
+                    <div className={`p-3 rounded-lg flex items-center gap-2 ${
+                      preflightResult.canDeploy
+                        ? "bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400"
+                        : "bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400"
+                    }`}>
+                      {preflightResult.canDeploy ? (
+                        <CheckCircle className="h-5 w-5" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5" />
+                      )}
+                      <span className="font-medium">{preflightResult.message}</span>
+                    </div>
+                    <div className="space-y-1">
+                      {preflightResult.checks.map((check) => (
+                        <div key={check.key} className="flex items-center justify-between p-2 border rounded text-sm">
+                          <span>{check.label}</span>
+                          <div className="flex items-center gap-2">
+                            {check.passed ? (
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-red-600" />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <Button 
+                onClick={() => setStep(6)} 
+                className="w-full" 
+                disabled={preflightResult && !preflightResult.canDeploy}
+                data-testid="next-step-6"
+              >
                 <Play className="h-4 w-4 mr-2" />
                 Verify Live URL
               </Button>
@@ -507,6 +670,22 @@ export default function DeployPage() {
                           </div>
                         ))}
                       </div>
+
+                      {verifyMutation.data.status === "passed" && (config?.status === "verified" || config?.status === "pending") && (
+                        <Button
+                          onClick={() => goLiveMutation.mutate()}
+                          disabled={goLiveMutation.isPending}
+                          className="w-full bg-green-600 hover:bg-green-700"
+                          data-testid="go-live"
+                        >
+                          {goLiveMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Rocket className="h-4 w-4 mr-2" />
+                          )}
+                          Go LIVE
+                        </Button>
+                      )}
                     </div>
                   )}
                 </>

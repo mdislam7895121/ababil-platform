@@ -162,3 +162,10 @@ For the Expo mobile app, run `cd apps/mobile && npx expo start`.
 - **API**: `/api/analytics/summary` - Zero-setup metrics
 - Metrics: totalUsers, activeUsersToday, requestsToday, aiRequestsToday, aiTokensToday
 - Derived from existing audit logs and AI usage data
+
+### Deploy Wizard UI Enhancements
+- **Health Badge**: Dashboard header shows traffic light status (green/yellow/red) with link to Deploy Wizard
+- **Secret Generator**: Step 3 includes button to generate SESSION_SECRET (64 chars) and ENCRYPTION_KEY (32 chars)
+- **Pre-Flight Check**: Step 5 runs deployment readiness checks before allowing verification
+- **Go-Live Flow**: Step 6 shows Go-Live button after successful verification; status transitions: pending → verified → live
+- **API**: `/api/deploy/go-live` - Marks tenant as LIVE after successful verification run

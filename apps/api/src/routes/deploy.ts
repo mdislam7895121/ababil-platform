@@ -198,7 +198,7 @@ router.post('/verify', requireRole('owner', 'admin'), async (req: AuthRequest, r
     if (allPassed) {
       await prisma.deployConfig.update({
         where: { tenantId: req.tenantId! },
-        data: { status: 'live' }
+        data: { status: 'verified' }
       });
     }
 
@@ -274,6 +274,50 @@ router.get('/checklist', requireRole('owner', 'admin'), async (req: AuthRequest,
   } catch (error) {
     console.error('Get checklist error:', error);
     res.status(500).json({ error: 'Failed to get checklist' });
+  }
+});
+
+router.post('/go-live', requireRole('owner', 'admin'), async (req: AuthRequest, res) => {
+  try {
+    const config = await prisma.deployConfig.findUnique({
+      where: { tenantId: req.tenantId! }
+    });
+
+    if (!config) {
+      return res.status(400).json({ error: 'No deploy config found. Please save config first.' });
+    }
+
+    if (config.status === 'live') {
+      return res.json({ ok: true, message: 'Already live' });
+    }
+
+    const lastRun = await prisma.deployRun.findFirst({
+      where: { tenantId: req.tenantId!, status: 'passed' },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!lastRun) {
+      return res.status(400).json({ error: 'Please run a successful verification first' });
+    }
+
+    await prisma.deployConfig.update({
+      where: { tenantId: req.tenantId! },
+      data: { status: 'live' }
+    });
+
+    await logAudit({
+      tenantId: req.tenantId!,
+      actorUserId: req.userId,
+      action: 'TENANT_MARKED_LIVE',
+      entityType: 'tenant',
+      entityId: req.tenantId,
+      metadata: { appUrl: config.appUrl }
+    });
+
+    res.json({ ok: true, message: 'Tenant marked as LIVE' });
+  } catch (error) {
+    console.error('Go live error:', error);
+    res.status(500).json({ error: 'Failed to mark as live' });
   }
 });
 

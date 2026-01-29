@@ -1,0 +1,139 @@
+ROLE:
+Implement a CUSTOMER SELF-SERVE Deploy Wizard that lets tenants go LIVE using their own infrastructure
+(BYO credentials). This completes the flow: Build → Setup → Verify → LIVE.
+
+GLOBAL RULES
+1) Additive only. Do NOT refactor existing Builder/Setup/Preview features.
+2) Proof-first. No “done” without UI + API evidence.
+3) Tenant-scoped, RBAC enforced (owner/admin only).
+4) Secrets never logged; encrypt at rest with ENCRYPTION_KEY.
+5) Mobile-friendly UI (works from phone browser).
+6) Low-cost & portable (no provider-specific IaC automation).
+
+GOAL (MVP)
+“Deploy Wizard” that:
+- Collects & validates BYO credentials
+- Generates secrets safely
+- Runs pre-flight checks
+- Verifies the LIVE URL
+- Marks tenant as LIVE
+
+================================
+FEATURES TO IMPLEMENT
+================================
+
+### 1) DEPLOY WIZARD UI
+Route: /dashboard/deploy
+
+Steps:
+A) Choose Provider (REPLIT | RENDER | RAILWAY | FLY | DOCKER)
+B) Enter LIVE App URL (https://...)
+C) Database (DATABASE_URL)
+D) Secrets (auto-generate JWT_SECRET + ENCRYPTION_KEY)
+E) Optional keys (OPENAI_API_KEY, Email, Payments)
+F) Pre-Flight Check
+G) Verify LIVE URL
+H) Mark LIVE
+
+UI Requirements:
+- Clear explanations per step (what/why/how)
+- Copy buttons for secrets (shown once)
+- Block “Go Live” if pre-flight fails
+- Progress indicator
+
+================================
+
+### 2) ENV & SECRET AUTO-GENERATOR
+API:
+- POST /api/env/generate
+Returns (shown once):
+- JWT_SECRET
+- ENCRYPTION_KEY
+
+Rules:
+- Generate server-side
+- Store encrypted references only
+- Warn user to save securely
+
+================================
+
+### 3) PRE-FLIGHT CHECK (BLOCK BAD DEPLOYS)
+API:
+- POST /api/deploy/preflight
+
+Checks:
+- DATABASE_URL reachable
+- Required env present
+- At least one admin user
+- No critical module misconfig
+- Setup checklist required items complete
+
+On failure:
+- Block deploy
+- Human-readable fix guidance
+
+================================
+
+### 4) LIVE VERIFICATION
+API:
+- POST /api/deploy/verify
+
+Actions:
+- Call {appUrl}/health
+- Call {appUrl}/ready
+- Call {appUrl}/api/dashboard/stats (auth)
+- Record results
+
+================================
+
+### 5) DEPLOY STATE & AUDIT
+Prisma Models (tenant-scoped):
+- DeployConfig:
+  id, tenantId, provider, appUrl, status(draft|configured|live),
+  dbUrlEncrypted, jwtSecretEncrypted, createdAt, updatedAt
+- DeployRun:
+  id, tenantId, deployConfigId, status(passed|failed),
+  resultsJson, errorText, startedAt, finishedAt
+
+Audit Logs:
+- DEPLOY_CONFIG_SAVED
+- PREFLIGHT_PASSED/FAILED
+- DEPLOY_VERIFIED
+- TENANT_MARKED_LIVE
+
+================================
+
+### 6) HEALTH BADGE
+Dashboard header shows:
+- 🟢 LIVE
+- 🟡 ACTION REQUIRED
+- 🔴 BLOCKED
+
+Click opens fix path.
+
+================================
+
+### 7) DOCS & PROOF
+Update:
+- DEPLOY.md: Deploy Wizard usage + required env
+- README.md: Go-Live overview
+- reports/proof.md:
+  * Pre-flight pass/fail
+  * Live verify results
+  * Tenant marked LIVE
+
+================================
+
+PROOF REQUIREMENTS (MANDATORY)
+- Screenshot: Deploy Wizard steps
+- Screenshot: Pre-flight failure message
+- Screenshot: Verification success
+- Screenshot: Health badge LIVE
+- Curl evidence:
+  POST /api/env/generate
+  POST /api/deploy/preflight
+  POST /api/deploy/verify
+
+STOP CONDITION
+When tenants can self-serve Go-Live, verification blocks unsafe deploys,
+and LIVE state is visible. Do not ask questions. Implement safely.

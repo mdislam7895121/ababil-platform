@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/components/theme-provider";
 import {
   LayoutDashboard,
@@ -25,6 +27,8 @@ import {
   CheckCircle,
   Eye,
   DollarSign,
+  AlertTriangle,
+  Activity,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -44,16 +48,45 @@ const navItems = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
+interface HealthSummary {
+  status: "green" | "yellow" | "red";
+  statusLabel: string;
+  safeMode: boolean;
+  issues: Array<{ level: string; message: string }>;
+}
+
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, currentTenant, logout } = useAuth();
+  const { user, currentTenant, token, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const { data: health } = useQuery<HealthSummary>({
+    queryKey: ["health-summary", currentTenant?.id],
+    queryFn: async () => {
+      const res = await fetch("/api/health/status/summary", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "x-tenant-id": currentTenant?.id || "",
+        },
+      });
+      if (!res.ok) return { status: "green", statusLabel: "Unknown", safeMode: false, issues: [] };
+      return res.json();
+    },
+    enabled: !!token && !!currentTenant,
+    refetchInterval: 60000,
+  });
 
   const handleLogout = () => {
     logout();
     router.push("/login");
+  };
+
+  const healthColors = {
+    green: "bg-green-500",
+    yellow: "bg-amber-500",
+    red: "bg-red-500",
   };
 
   return (
@@ -132,17 +165,35 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center border-b px-4 lg:px-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="mr-4 lg:hidden"
-            onClick={() => setSidebarOpen(true)}
-            data-testid="button-mobile-menu"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-semibold">{currentTenant?.name}</h1>
+        <header className="flex h-16 items-center justify-between border-b px-4 lg:px-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mr-4 lg:hidden"
+              onClick={() => setSidebarOpen(true)}
+              data-testid="button-mobile-menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <h1 className="text-lg font-semibold">{currentTenant?.name}</h1>
+          </div>
+          {health && (
+            <Link href="/dashboard/deploy" data-testid="health-badge">
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "flex items-center gap-2 cursor-pointer",
+                  health.status === "red" && "border-red-500 text-red-600",
+                  health.status === "yellow" && "border-amber-500 text-amber-600",
+                  health.status === "green" && "border-green-500 text-green-600"
+                )}
+              >
+                <span className={cn("h-2 w-2 rounded-full", healthColors[health.status])} />
+                {health.status === "green" ? "LIVE" : health.status === "yellow" ? "ACTION REQUIRED" : "BLOCKED"}
+              </Badge>
+            </Link>
+          )}
         </header>
 
         <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>
