@@ -236,3 +236,48 @@ When detected, CSS variables are dynamically updated to apply reseller's brand c
 // Fixed-based: min(fixedAmount, invoiceAmount)
 calculateCommission(amount, commissionType, commissionValue) → { commission, platformRevenue }
 ```
+
+## Background Jobs + Queue System
+
+### Overview
+Automated background job scheduling using node-cron for maintenance tasks like cleanup operations. Jobs run automatically on schedule and can also be triggered manually via admin endpoints.
+
+### Database Model
+- **JobRun**: Tracks job execution history with name, status (success/failed), startedAt, endedAt, details (JSON), createdAt
+
+### Scheduled Jobs
+| Job | Schedule | Description |
+|-----|----------|-------------|
+| cleanupPreviewSessions | Every 6 hours (`0 */6 * * *`) | Deletes expired and revoked preview sessions |
+| cleanupI18nCache | Daily at 3am (`0 3 * * *`) | Removes old i18n translation cache entries |
+
+### API Endpoints (Admin Only)
+- `GET /api/jobs/status` - Get scheduler status and registered jobs
+- `GET /api/jobs/runs` - List job execution history (supports `?limit=N` and `?name=jobName`)
+- `POST /api/jobs/run/:name` - Manually trigger a job by name
+
+### Configuration
+- **JOBS_ENABLED**: Set to `false` to disable the job scheduler (defaults to `true`)
+
+### Module Structure
+```
+apps/api/src/jobs/
+├── index.ts           # Exports for scheduler functions
+├── scheduler.ts       # Main scheduler with cron registration
+├── cleanupPreviewSessions.ts  # Preview session cleanup job
+└── cleanupI18nCache.ts        # I18n cache cleanup job
+```
+
+### Example Job Run Response
+```json
+{
+  "job": "cleanupPreviewSessions",
+  "result": {
+    "success": true,
+    "details": {
+      "expiredCount": 5,
+      "revokedCount": 2
+    }
+  }
+}
+```
