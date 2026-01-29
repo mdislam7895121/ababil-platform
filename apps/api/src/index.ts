@@ -60,6 +60,7 @@ import { preflightRoutes } from './routes/preflight.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { onboardingRoutes } from './routes/onboarding.js';
 import { billingRoutes } from './routes/billing.js';
+import { revenueRoutes } from './routes/revenue.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 
@@ -159,6 +160,7 @@ app.use('/api/deploy/preflight', apiLimiter, authMiddleware, tenantMiddleware, p
 app.use('/api/analytics', apiLimiter, authMiddleware, tenantMiddleware, analyticsRoutes);
 app.use('/api/onboarding', apiLimiter, authMiddleware, tenantMiddleware, onboardingRoutes);
 app.use('/api/billing', apiLimiter, authMiddleware, tenantMiddleware, billingRoutes);
+app.use('/api/revenue', apiLimiter, authMiddleware, tenantMiddleware, revenueRoutes);
 
 // Error handler with human-friendly messages
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

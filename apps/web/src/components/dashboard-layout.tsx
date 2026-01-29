@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   Activity,
   MessageCircleQuestion,
+  TrendingUp,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -41,6 +42,7 @@ const navItems = [
   { href: "/dashboard/preview", label: "Preview", icon: Eye },
   { href: "/dashboard/costs", label: "Cost Estimate", icon: DollarSign },
   { href: "/dashboard/deploy", label: "Deploy", icon: Rocket },
+  { href: "/dashboard/revenue", label: "Revenue", icon: TrendingUp, roles: ["owner", "admin"] },
   { href: "/dashboard/users", label: "Users", icon: Users },
   { href: "/dashboard/api-keys", label: "API Keys", icon: Key },
   { href: "/dashboard/modules", label: "Modules", icon: Puzzle },
@@ -60,9 +62,16 @@ interface HealthSummary {
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, currentTenant, token, logout } = useAuth();
+  const { user, currentTenant, token, logout, currentRole } = useAuth();
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const filteredNavItems = navItems.filter(item => {
+    if ('roles' in item && item.roles) {
+      return item.roles.includes(currentRole || '');
+    }
+    return true;
+  });
 
   const { data: health } = useQuery<HealthSummary>({
     queryKey: ["health-summary", currentTenant?.id],
@@ -122,7 +131,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="flex-1 space-y-1 p-4">
-            {navItems.map((item) => {
+            {filteredNavItems.map((item) => {
               const isActive = pathname === item.href;
               const isHighlight = 'highlight' in item && item.highlight;
               return (
