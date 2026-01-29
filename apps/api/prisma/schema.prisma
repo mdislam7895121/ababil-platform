@@ -601,3 +601,40 @@ model DeployVerificationRun {
   @@index([status])
   @@map("deploy_verification_runs")
 }
+
+model SupportTicket {
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  createdByUserId  String    @map("created_by_user_id")
+  subject          String
+  category         String    @default("question") // deploy|billing|preview|bug|question
+  priority         String    @default("medium") // low|medium|high|critical
+  status           String    @default("open") // open|in_progress|waiting|solved|closed
+  linkedIncidentId String?   @map("linked_incident_id")
+  solvedAt         DateTime? @map("solved_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  messages SupportMessage[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdByUserId])
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id          String   @id @default(uuid())
+  ticketId    String   @map("ticket_id")
+  authorRole  String   @default("customer") // customer|staff|admin
+  authorId    String   @map("author_id")
+  message     String
+  attachments Json     @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("support_messages")
+}
