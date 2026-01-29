@@ -31,6 +31,8 @@ import {
   Activity,
   MessageCircleQuestion,
   TrendingUp,
+  CreditCard,
+  Receipt,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -41,8 +43,10 @@ const navItems = [
   { href: "/dashboard/checklist", label: "Go Live Checklist", icon: CheckCircle },
   { href: "/dashboard/preview", label: "Preview", icon: Eye },
   { href: "/dashboard/costs", label: "Cost Estimate", icon: DollarSign },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
   { href: "/dashboard/deploy", label: "Deploy", icon: Rocket },
   { href: "/dashboard/revenue", label: "Revenue", icon: TrendingUp, roles: ["owner", "admin"] },
+  { href: "/dashboard/payments", label: "Payments", icon: Receipt, roles: ["owner", "admin"] },
   { href: "/dashboard/users", label: "Users", icon: Users },
   { href: "/dashboard/api-keys", label: "API Keys", icon: Key },
   { href: "/dashboard/modules", label: "Modules", icon: Puzzle },
