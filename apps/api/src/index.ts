@@ -16,6 +16,11 @@ import { checklistRoutes } from './routes/checklist.js';
 import { previewRoutes } from './routes/preview.js';
 import { presetsRoutes } from './routes/presets.js';
 import { costsRoutes } from './routes/costs.js';
+import { setupRoutes } from './routes/setup.js';
+import { envRoutes } from './routes/env.js';
+import { healthRoutes } from './routes/health.js';
+import { preflightRoutes } from './routes/preflight.js';
+import { analyticsRoutes } from './routes/analytics.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 
@@ -73,6 +78,11 @@ app.use('/api/checklist', apiLimiter, authMiddleware, tenantMiddleware, checklis
 app.use('/api/preview', apiLimiter, authMiddleware, tenantMiddleware, previewRoutes);
 app.use('/api/presets', apiLimiter, authMiddleware, tenantMiddleware, presetsRoutes);
 app.use('/api/costs', apiLimiter, authMiddleware, tenantMiddleware, costsRoutes);
+app.use('/api/setup', apiLimiter, authMiddleware, tenantMiddleware, setupRoutes);
+app.use('/api/env', apiLimiter, authMiddleware, tenantMiddleware, envRoutes);
+app.use('/api/health/status', apiLimiter, authMiddleware, tenantMiddleware, healthRoutes);
+app.use('/api/deploy/preflight', apiLimiter, authMiddleware, tenantMiddleware, preflightRoutes);
+app.use('/api/analytics', apiLimiter, authMiddleware, tenantMiddleware, analyticsRoutes);
 
 // Error handler with human-friendly messages
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -1,0 +1,181 @@
+ROLE:
+You are implementing ZERO-THINKING MODE (Auto-Pilot UX) on top of the existing Digital Platform Factory.
+Goal: Customers should not have to think about setup, configuration, or deployment order.
+The system must guide, validate, block unsafe actions, and explain issues in human language.
+
+GLOBAL RULES
+1) Additive only. Do NOT refactor existing Builder, Modules, or Connectors.
+2) Proof-first. Every feature must be visible in UI and verifiable via API.
+3) Tenant-scoped, RBAC enforced (owner/admin only for critical actions).
+4) Human-readable errors only. No stack traces in UI.
+5) Mobile-friendly (phone browser usable).
+
+================================
+FEATURE SET (ZERO-THINKING MODE)
+================================
+
+### 1) GUIDED SETUP (AUTO-PILOT)
+After a successful Builder Run, automatically start “Guided Setup”.
+
+Steps (fixed order, auto-advance on success):
+1. Database
+2. Secrets (JWT / Encryption)
+3. Email (optional)
+4. Payments (optional)
+5. AI (optional)
+6. Deploy Verification
+
+Rules:
+- Each step explains: What it is, Why needed, How to fix if failed
+- Cannot skip required steps
+- Optional steps clearly marked
+- Progress bar always visible (e.g., 3/6 completed)
+
+API:
+- GET /api/setup/state
+- POST /api/setup/step/:key/verify
+- POST /api/setup/step/:key/complete
+
+UI:
+- /dashboard/setup (Auto-opens after Builder Run)
+- “Continue Setup” button always visible until LIVE
+
+================================
+
+### 2) SMART DEFAULTS (NO DECISIONS)
+Pre-fill everything reasonable:
+- Workflow labels
+- Role permissions
+- Notification toggles
+- Dashboard widgets
+- Module configs
+
+Customer can change later, but default must work immediately.
+
+================================
+
+### 3) ENVIRONMENT AUTO-GENERATOR
+Generate secrets automatically:
+- JWT_SECRET
+- ENCRYPTION_KEY
+
+Rules:
+- Generate server-side
+- Show once with Copy button
+- Warn: “Save this securely. It will not be shown again.”
+
+API:
+- POST /api/env/generate
+
+================================
+
+### 4) PRE-FLIGHT CHECK (BLOCK BAD DEPLOYS)
+Before “Go Live”, automatically check:
+- Database reachable
+- Required env present
+- At least one admin user
+- No critical module misconfig
+
+If any fail:
+- Block deploy
+- Show exact fix in plain language
+
+API:
+- POST /api/deploy/preflight
+
+================================
+
+### 5) HEALTH MONITOR (TRAFFIC LIGHT)
+Show app health at top of dashboard:
+- 🟢 Healthy
+- 🟡 Action required
+- 🔴 Critical issue
+
+Click status to see:
+- What’s wrong
+- How to fix
+- Direct link to the fix screen
+
+API:
+- GET /api/health/summary
+
+================================
+
+### 6) SAFE MODE (DAMAGE CONTROL)
+If critical config missing:
+- Auto-disable emails
+- Auto-disable payments
+- Auto-disable AI
+
+App remains usable.
+Show banner: “Safe Mode active — no external actions will run.”
+
+================================
+
+### 7) WHAT YOU’RE MISSING PANEL
+System proactively lists missing but recommended items:
+- “Email not configured → users won’t get notifications”
+- “Payment not configured → orders won’t be paid”
+- “AI enabled without quota → risk of overuse”
+
+UI:
+- Dismissible suggestions
+- Clear priority labels
+
+================================
+
+### 8) SIMPLE ANALYTICS (ZERO SETUP)
+Out-of-the-box metrics:
+- Active users (today)
+- Requests today
+- Failed actions
+- AI usage summary
+
+No configuration required.
+
+================================
+
+### 9) AUTO DOCUMENTATION
+After Builder + Setup:
+Auto-generate:
+- Admin Guide
+- Staff Guide
+- API Summary (read-only)
+
+Accessible from dashboard.
+No PDFs required for MVP.
+
+================================
+
+DATABASE (PRISMA – ADD MODELS)
+Add tenant-scoped models:
+- SetupStep:
+  id, tenantId, key, status(pending|passed|failed), lastCheckedAt
+
+- HealthStatus:
+  id, tenantId, status(green|yellow|red), message, updatedAt
+
+================================
+
+PROOF REQUIREMENTS (MANDATORY)
+You must provide:
+1) Screenshot: Guided Setup with progress bar
+2) Screenshot: Pre-flight failure message (human text)
+3) Screenshot: Health Monitor (traffic light)
+4) Screenshot: Safe Mode banner
+5) Updated reports/proof.md showing:
+   - Setup steps verification
+   - Pre-flight block
+   - Health summary response
+
+================================
+
+STOP CONDITION
+When:
+- Guided Setup auto-opens
+- Required steps cannot be skipped
+- Deploy is blocked until safe
+- Health status is visible
+- Proof is attached
+
+Do NOT ask questions. Implement incrementally and safely.
