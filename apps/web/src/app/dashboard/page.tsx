@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { useTranslation } from "@/lib/i18n/context";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Key, Puzzle, Plug, Activity } from "lucide-react";
@@ -24,6 +25,7 @@ interface DashboardStats {
 
 export default function DashboardPage() {
   const { token, currentTenant } = useAuth();
+  const { t, language } = useTranslation();
 
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["dashboard-stats", currentTenant?.id],
@@ -44,8 +46,8 @@ export default function DashboardPage() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome to your workspace</p>
+          <h1 className="text-3xl font-bold" data-testid="text-dashboard-title">{t("dashboard.title")}</h1>
+          <p className="text-muted-foreground" data-testid="text-dashboard-welcome">{t("common.welcome")} {t("dashboard.workspace")}</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -63,6 +63,7 @@ import { billingRoutes } from './routes/billing.js';
 import { revenueRoutes } from './routes/revenue.js';
 import { paymentsRoutes } from './routes/payments.js';
 import { invoicesRoutes } from './routes/invoices.js';
+import i18nRoutes from './routes/i18n.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 
@@ -129,6 +130,9 @@ app.use('/api/auth', authLimiter, authRoutes);
 
 // Public preview routes (no auth required for viewing previews)
 app.use('/api/preview', apiLimiter, previewPublicRoutes);
+
+// Public i18n routes (languages list and translations)
+app.use('/api/i18n', apiLimiter, i18nRoutes);
 
 // Public billing plans endpoint
 app.get('/api/billing/plans', apiLimiter, async (req, res) => {

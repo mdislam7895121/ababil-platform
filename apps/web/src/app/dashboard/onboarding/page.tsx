@@ -32,7 +32,9 @@ import {
   BellOff,
   CreditCard,
   Sparkles,
+  Globe,
 } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 type BusinessType = "salon" | "clinic" | "courier";
 type StaffCount = "1" | "2-5" | "6-20" | "20+";
@@ -47,6 +49,7 @@ interface OnboardingAnswers {
   needsPayment: boolean | null;
   notifications: NotificationType[];
   workingHours: WorkingHours | null;
+  preferredLanguage: string;
 }
 
 interface Blueprint {
@@ -105,6 +108,7 @@ function OnboardingContent() {
   const { token, currentTenant, memberships, currentRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { languages, setLanguage: setGlobalLanguage } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -117,6 +121,7 @@ function OnboardingContent() {
     needsPayment: null,
     notifications: [],
     workingHours: null,
+    preferredLanguage: "en",
   });
   const [draftResult, setDraftResult] = useState<DraftResponse | null>(null);
   const [buildComplete, setBuildComplete] = useState(false);
@@ -502,6 +507,32 @@ function OnboardingContent() {
                       onChange={(e) => setAnswers({ ...answers, city: e.target.value })}
                       data-testid="input-city"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      Preferred Language
+                    </Label>
+                    <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                      {languages.slice(0, 12).map((lang) => (
+                        <div
+                          key={lang.code}
+                          onClick={() => {
+                            setAnswers({ ...answers, preferredLanguage: lang.code });
+                            setGlobalLanguage(lang.code);
+                          }}
+                          className={`p-2 rounded-lg border cursor-pointer transition-colors text-center text-sm hover-elevate ${
+                            answers.preferredLanguage === lang.code
+                              ? "border-primary bg-primary/5"
+                              : "border-border"
+                          }`}
+                          data-testid={`option-lang-${lang.code}`}
+                        >
+                          <p className="font-medium">{lang.nativeName}</p>
+                          <p className="text-xs text-muted-foreground">{lang.name}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>

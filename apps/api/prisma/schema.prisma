@@ -13,6 +13,8 @@ model Tenant {
   slug      String   @unique
   plan      String   @default("free")
   settings  Json     @default("{}")
+  language  String   @default("en")
+  languages String[] @default(["en"])
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -385,4 +387,17 @@ model Invoice {
   manualPayment ManualPayment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   @@map("invoices")
+}
+
+model TranslationCache {
+  id          String   @id @default(uuid())
+  lang        String
+  key         String
+  translation Json
+  generatedAt DateTime @default(now()) @map("generated_at")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([lang, key])
+  @@map("translation_cache")
 }

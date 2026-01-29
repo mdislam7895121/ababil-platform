@@ -35,6 +35,7 @@ import {
   Receipt,
 } from "lucide-react";
 import { useState } from "react";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -196,22 +197,25 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             </Button>
             <h1 className="text-lg font-semibold">{currentTenant?.name}</h1>
           </div>
-          {health && (
-            <Link href="/dashboard/deploy" data-testid="health-badge">
-              <Badge 
-                variant="outline" 
-                className={cn(
-                  "flex items-center gap-2 cursor-pointer",
-                  health.status === "red" && "border-red-500 text-red-600",
-                  health.status === "yellow" && "border-amber-500 text-amber-600",
-                  health.status === "green" && "border-green-500 text-green-600"
-                )}
-              >
-                <span className={cn("h-2 w-2 rounded-full", healthColors[health.status])} />
-                {health.status === "green" ? "LIVE" : health.status === "yellow" ? "ACTION REQUIRED" : "BLOCKED"}
-              </Badge>
-            </Link>
-          )}
+          <div className="flex items-center gap-4">
+            <LanguageSwitcher />
+            {health && (
+              <Link href="/dashboard/deploy" data-testid="health-badge">
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "flex items-center gap-2 cursor-pointer",
+                    health.status === "red" && "border-red-500 text-red-600",
+                    health.status === "yellow" && "border-amber-500 text-amber-600",
+                    health.status === "green" && "border-green-500 text-green-600"
+                  )}
+                >
+                  <span className={cn("h-2 w-2 rounded-full", healthColors[health.status])} />
+                  {health.status === "green" ? "LIVE" : health.status === "yellow" ? "ACTION REQUIRED" : "BLOCKED"}
+                </Badge>
+              </Link>
+            )}
+          </div>
         </header>
 
         <main className="flex-1 overflow-auto p-4 lg:p-6">{children}</main>

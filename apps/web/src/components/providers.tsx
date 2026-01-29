@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/components/theme-provider";
+import { I18nProvider } from "@/lib/i18n/context";
 import { Toaster } from "@/components/ui/toaster";
 import { useState } from "react";
 
@@ -19,10 +20,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <AuthProvider>
-          {children}
-          <Toaster />
-        </AuthProvider>
+        <I18nProvider>
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
+        </I18nProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
