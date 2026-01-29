@@ -298,13 +298,18 @@ router.post('/go-live', requireRole('owner', 'admin'), async (req: AuthRequest, 
       return res.json({ ok: true, message: 'Already live' });
     }
 
-    const lastRun = await prisma.deployRun.findFirst({
-      where: { tenantId: req.tenantId!, status: 'passed' },
+    // Check that the MOST RECENT verification run is a PASS
+    const lastVerify = await prisma.deployVerificationRun.findFirst({
+      where: { tenantId: req.tenantId! },
       orderBy: { createdAt: 'desc' }
     });
 
-    if (!lastRun) {
-      return res.status(400).json({ error: 'Please run a successful verification first' });
+    if (!lastVerify) {
+      return res.status(400).json({ error: 'Please run a remote verification first' });
+    }
+
+    if (lastVerify.status !== 'pass') {
+      return res.status(400).json({ error: 'Last verification failed. Please run a successful verification before going live.' });
     }
 
     const subscription = await prisma.subscription.findUnique({
