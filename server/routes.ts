@@ -479,6 +479,35 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/modules/:key/toggle", authMiddleware, requireTenant, requireRole("admin"), async (req, res) => {
+    try {
+      const { key } = req.params;
+      const { enabled } = req.body;
+      
+      if (!MODULE_KEYS.includes(key as any)) {
+        return res.status(400).json({ error: "Invalid module key" });
+      }
+      
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+      
+      const flag = await storage.upsertModuleFlag(req.tenantId!, key, enabled);
+      
+      await storage.createAuditLog({
+        tenantId: req.tenantId!,
+        actorUserId: req.user?.id,
+        action: enabled ? "enable_module" : "disable_module",
+        entityType: "module",
+        entityId: key,
+      });
+      
+      res.json({ success: true, module: { key, enabled } });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to toggle module" });
+    }
+  });
+
   // ============================================================================
   // CONNECTOR ROUTES
   // ============================================================================
