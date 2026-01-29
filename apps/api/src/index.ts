@@ -7,9 +7,12 @@ import { PrismaClient } from '@prisma/client';
 
 // Start Next.js as a child process
 const startNextJs = () => {
-  console.log('Starting Next.js web dashboard on port 3000...');
-  const next = spawn('npx', ['next', 'dev', '-p', '3000'], {
-    cwd: 'apps/web',
+  const isProd = process.env.NODE_ENV === 'production';
+  const command = isProd ? 'start' : 'dev';
+  console.log(`Starting Next.js web dashboard on port 3000 (${isProd ? 'production' : 'development'})...`);
+  
+  const next = spawn('npx', ['next', command, '-p', '3000'], {
+    cwd: isProd ? 'apps/web' : 'apps/web',
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env }
   });
@@ -34,10 +37,8 @@ const startNextJs = () => {
   return next;
 };
 
-// Start Next.js in development mode
-if (process.env.NODE_ENV === 'development') {
-  startNextJs();
-}
+// Start Next.js in both development and production
+startNextJs();
 import { authRoutes } from './routes/auth.js';
 import { userRoutes } from './routes/users.js';
 import { moduleRoutes } from './routes/modules.js';
@@ -88,6 +89,21 @@ const apiLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 300,
   message: { error: 'Too many requests, please try again later' }
+});
+
+// Root health check for deployment (responds immediately, before proxy)
+app.get('/', (req, res, next) => {
+  // Only respond to health checks (no Accept header or specific user agents)
+  const userAgent = req.headers['user-agent'] || '';
+  const isHealthCheck = userAgent.includes('health') || 
+                        userAgent.includes('curl') || 
+                        req.headers['x-health-check'] === 'true' ||
+                        !req.headers['accept']?.includes('text/html');
+  
+  if (isHealthCheck && !req.headers['accept']?.includes('text/html')) {
+    return res.json({ status: 'ok', service: 'platform-factory', timestamp: new Date().toISOString() });
+  }
+  next();
 });
 
 // Health check
