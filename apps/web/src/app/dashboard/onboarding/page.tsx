@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -101,8 +101,8 @@ const HOURS_OPTIONS = [
   { key: "24/7" as const, label: "24/7", description: "Always open" },
 ];
 
-export default function OnboardingPage() {
-  const { token, currentTenant, membership } = useAuth();
+function OnboardingContent() {
+  const { token, currentTenant, memberships, currentRole } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -121,7 +121,7 @@ export default function OnboardingPage() {
   const [draftResult, setDraftResult] = useState<DraftResponse | null>(null);
   const [buildComplete, setBuildComplete] = useState(false);
   
-  const isAdminOrOwner = membership?.role === "owner" || membership?.role === "admin";
+  const isAdminOrOwner = currentRole === "owner" || currentRole === "admin";
 
   useEffect(() => {
     const industryParam = searchParams.get("industry");
@@ -716,5 +716,17 @@ export default function OnboardingPage() {
         </Card>
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center p-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <OnboardingContent />
+    </Suspense>
   );
 }
