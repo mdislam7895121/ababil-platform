@@ -1,0 +1,259 @@
+ROLE: You are a senior full-stack architect + engineer operating inside Replit Agent. Build a production-grade multi-tenant “Digital Platform Factory” that can ship Web App + Native Apps from one shared backend. This must be low-cost to operate, modular, and AI-optional with strict cost controls.
+
+NON-NEGOTIABLE RULES
+1) Proof-first: Never claim “done/fixed/works” without concrete evidence.
+   - Provide: git status, git diff summary, build/test logs, and at least 10 curl requests with expected JSON outputs.
+2) Non-breaking only: No refactors that break existing working code. Additive changes preferred.
+3) One shared backend: All clients (web + mobile) must use the same API and the same database.
+4) Multi-tenant by design: Every business is a tenant/workspace. All data must be tenant-scoped.
+5) Security: input validation, authZ checks, rate limits, audit logs, secrets management, minimal logging of sensitive data.
+6) Cost control: AI features off by default, tenant quotas, caching, small-model-first strategy, no “AI everywhere.”
+
+OUTPUTS YOU MUST DELIVER
+A) A working monorepo with:
+   - apps/api (Node.js + TypeScript + Express)
+   - apps/web (Next.js admin + customer portal)
+   - apps/mobile (Expo React Native shell)
+   - packages/shared (types, zod schemas, api client)
+B) Database (Postgres + Prisma) + migrations
+C) Auth + RBAC + tenant isolation
+D) Connectors layer (Stripe/Email/Storage/Push placeholders with config UI + secrets)
+E) Modules system with feature flags
+F) AI service (OpenAI optional) with quotas + caching + safety guardrails
+G) A “Verification + Proof Report” markdown file in /reports/proof.md
+
+TECH STACK (LOCK IT)
+- Node.js (LTS), TypeScript
+- Express
+- Prisma + PostgreSQL
+- Zod validation
+- Next.js (web)
+- Expo React Native (mobile)
+- Redis optional (only if needed for jobs/rate limit)
+- Rate limiting: express-rate-limit (or equivalent)
+- Logging: pino
+- Testing minimum: api smoke tests via curl + optional vitest
+
+REPO STRUCTURE (CREATE EXACTLY)
+/
+  apps/
+    api/
+      src/
+      prisma/
+    web/
+    mobile/
+  packages/
+    shared/
+  reports/
+  .env.example
+  README.md
+
+PHASE 0 — PROJECT BOOTSTRAP (MUST COMPLETE)
+0.1 Create monorepo package manager setup (pnpm preferred, npm acceptable).
+0.2 Add scripts: lint, typecheck, dev, build for each app.
+0.3 Create .env.example with placeholders.
+0.4 Add basic CI-like checks locally: typecheck must pass.
+
+PHASE 1 — DATABASE + TENANCY MODEL (MUST COMPLETE)
+Create Prisma schema with tenant-scoped models and indices.
+
+Required tables (minimum):
+- Tenant (id, name, slug, plan, status, createdAt)
+- User (id, email, passwordHash, status, createdAt)
+- Membership (id, tenantId, userId, role, createdAt) UNIQUE(tenantId,userId)
+- ApiKey (id, tenantId, name, keyHash, scopes, lastUsedAt)
+- AuditLog (id, tenantId, actorUserId, action, entityType, entityId, metadataJson, createdAt)
+- Secret (id, tenantId, key, encryptedValue, createdAt)  // store connector secrets
+- ModuleFlag (id, tenantId, moduleKey, enabled, configJson)
+- WebhookEndpoint (id, tenantId, url, secret, events, enabled)
+- JobRun (id, tenantId, jobKey, status, startedAt, finishedAt, outputJson)
+
+Rules:
+- Every write/read must include tenantId in queries.
+- Add an internal guard to reject queries missing tenant scope.
+- Migrations must run cleanly.
+
+PHASE 2 — API FOUNDATION (MUST COMPLETE)
+Build apps/api with:
+2.1 Health + readiness endpoints
+- GET /health -> {status:"ok"}
+- GET /ready -> checks db connectivity
+
+2.2 Auth endpoints
+- POST /auth/register (customer/admin seed only for MVP) -> create user + default tenant OR join tenant by invite (optional)
+- POST /auth/login -> JWT
+- Middleware: requireAuth, requireTenant, requireRole
+
+2.3 Request context
+- Every request must resolve tenant via:
+  a) Header: x-tenant-id OR
+  b) Subdomain parsing (optional, later)
+  c) API Key (x-api-key) -> maps to tenant
+- Add requestId middleware
+
+2.4 Validation + error format
+- Use Zod for every write endpoint.
+- Standard error response:
+  { error: { code, message, details? }, requestId }
+
+2.5 Rate limits
+- Auth: 5 per minute per IP
+- General API: 120 per 5 minutes per tenant
+- AI: separate limits + quotas
+
+PHASE 3 — CORE PLATFORM FEATURES (MUST COMPLETE)
+3.1 Tenants
+- GET /tenants/me -> current tenant profile
+- PATCH /tenants/me -> update name, plan (admin only)
+
+3.2 Users + memberships
+- GET /users -> list users in tenant (admin only)
+- POST /users/invite (optional MVP) OR POST /memberships -> add membership
+- RBAC roles: owner, admin, staff, viewer
+
+3.3 API keys
+- POST /api-keys -> create and return key once (store hash)
+- GET /api-keys -> list
+- DELETE /api-keys/:id
+
+3.4 Audit logs
+- Auto-log for sensitive actions (auth, keys, secrets, module toggles)
+- GET /audit-logs -> paginated
+
+3.5 Webhooks
+- CRUD endpoints
+- Signature secret stored
+- Only basic delivery job stub now
+
+PHASE 4 — CONNECTOR HUB (MUST COMPLETE)
+Implement connector abstraction in API:
+- Connectors: STRIPE, EMAIL, STORAGE, PUSH
+- Each connector has:
+  - config schema (public)
+  - secret schema (private)
+  - validate function
+  - test connection endpoint
+
+Endpoints:
+- GET /connectors -> list supported connectors
+- GET /connectors/:key -> tenant config status (connected true/false)
+- POST /connectors/:key -> save config + secrets (encrypt secrets)
+- POST /connectors/:key/test -> returns ok/error (mock implementations allowed)
+
+Encryption requirement:
+- Use a server-side ENCRYPTION_KEY env to encrypt secret values at rest.
+- Do not log secrets.
+
+PHASE 5 — MODULES SYSTEM (MUST COMPLETE)
+Modules are toggles per tenant. Implement:
+- module registry in code:
+  MODULE_KEYS = ["booking","ecommerce","crm","support","analytics","ai_assistant"]
+- Endpoint:
+  - GET /modules -> list + enabled state
+  - POST /modules/:moduleKey/enable
+  - POST /modules/:moduleKey/disable
+  - GET /modules/:moduleKey/config
+  - PUT /modules/:moduleKey/config
+
+Rules:
+- If module disabled, related endpoints must return 403 {code:"MODULE_DISABLED"}.
+
+PHASE 6 — AI SERVICE (OPTIONAL BUT BUILD THE FRAMEWORK)
+Build a safe AI micro-layer inside apps/api:
+- Module key: ai_assistant (disabled by default)
+
+Endpoints:
+- POST /ai/chat
+Input:
+  { message: string, context?: { page?: string, entityId?: string } }
+Output:
+  { reply: string, cached: boolean, usage?: { tokensIn, tokensOut } }
+
+Cost controls (MUST):
+- Tenant quotas table/config:
+  - dailyRequestsLimit
+  - monthlyRequestsLimit
+- Cache:
+  - hash(tenantId + normalizedPrompt + context) -> stored response
+- Model routing:
+  - Use small model first; only escalate if needed (rule-based).
+- Safety:
+  - Strip secrets/PII from context
+  - Enforce RBAC: user must have permission to access referenced entity data
+- If OPENAI_API_KEY missing -> return mock reply indicating AI not configured (no crash)
+
+PHASE 7 — WEB APP (NEXT.JS) ADMIN + CUSTOMER PORTAL (MVP)
+apps/web must include:
+- Login screen
+- Tenant switch (if multiple)
+- Admin pages:
+  - Users + roles
+  - API keys
+  - Modules toggles
+  - Connectors setup (Stripe/Email/Storage/Push)
+  - Audit logs viewer
+- Customer pages (minimal):
+  - Dashboard
+  - Profile
+
+Web must call apps/api via a shared API client in packages/shared.
+
+PHASE 8 — MOBILE APP (EXPO) SHELL (MVP)
+apps/mobile must include:
+- Login
+- Token storage (secure store)
+- Simple dashboard screen
+- Profile screen
+- A “Modules” screen showing enabled modules from backend
+
+PHASE 9 — DEFINITION OF DONE + PROOF REPORT (MANDATORY)
+Create /reports/proof.md containing:
+1) Setup steps
+2) Env vars used
+3) Database migration output
+4) API server start log
+5) Web start log
+6) Mobile start log
+7) 10+ curl requests with outputs (copy/paste)
+   - health/ready
+   - register/login
+   - modules list/enable/disable
+   - connectors save/test
+   - api key create/list/delete
+   - audit logs list
+   - ai/chat mock + (if key present) real call
+8) Security checklist:
+   - tenant isolation enforced
+   - validation on writes
+   - rate limits active
+   - secrets not logged
+   - audit logs recorded
+
+MANDATORY VERIFICATION COMMANDS (RUN AND PASTE OUTPUT)
+- git status
+- git diff --stat
+- pnpm -r typecheck (or npm equivalents)
+- API: curl /health and /ready
+- Prisma migrate deploy (or dev migration) output
+
+IMPLEMENTATION NOTES (IMPORTANT)
+- Keep code simple, readable, production-minded.
+- Use consistent folder naming and exports.
+- Every endpoint must be tenant-scoped.
+- Never store plaintext API keys or connector secrets.
+- Never return stack traces to client in production mode.
+- Use structured logs with requestId.
+
+START NOW
+Step 1: Create the monorepo scaffold, install deps, wire scripts, and commit “chore: bootstrap monorepo”.
+Then proceed phase by phase in order. After each phase, run verification and update /reports/proof.md progressively.
+Do NOT skip proof.
+
+DELIVERABLE AT END
+A runnable system where:
+- One command starts API + Web + Mobile dev servers.
+- Tenants/users/auth work.
+- Modules toggles work.
+- Connectors hub persists encrypted secrets.
+- AI endpoint works in mock mode by default and real mode if OPENAI_API_KEY is set.
+- proof.md contains complete evidence.
