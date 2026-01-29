@@ -23,6 +23,10 @@ import {
   Play,
   History,
   Shield,
+  CreditCard,
+  Lock,
+  Sparkles,
+  X,
 } from "lucide-react";
 
 interface DeployConfig {
@@ -74,6 +78,24 @@ interface PreflightResult {
   blockingIssues: Array<{ key: string; label: string; message: string }>;
 }
 
+interface BillingStatus {
+  plan: string;
+  status: string;
+  canGoLive: boolean;
+  liveAppsLimit: number;
+  liveAppsUsed: number;
+  currentPeriodEnd?: string;
+  message: string;
+}
+
+interface Plan {
+  key: string;
+  name: string;
+  priceMonthly: number;
+  liveAppsLimit: number;
+  features: string[];
+}
+
 const PROVIDERS = [
   { value: "REPLIT", label: "Replit", recommended: true },
   { value: "RENDER", label: "Render", recommended: false },
@@ -94,6 +116,9 @@ export default function DeployPage() {
   const [jwtSecret, setJwtSecret] = useState("");
   const [generatedSecrets, setGeneratedSecrets] = useState<GeneratedSecrets | null>(null);
   const [preflightResult, setPreflightResult] = useState<PreflightResult | null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string>("pro");
+  const [subscribing, setSubscribing] = useState(false);
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -129,6 +154,25 @@ export default function DeployPage() {
       return res.json();
     },
     enabled: !!token && !!currentTenant,
+  });
+
+  const { data: billingStatus, refetch: refetchBilling } = useQuery<BillingStatus>({
+    queryKey: ["billing-status", currentTenant?.id],
+    queryFn: async () => {
+      const res = await fetch("/api/billing/status", { headers });
+      if (!res.ok) throw new Error("Failed to fetch billing status");
+      return res.json();
+    },
+    enabled: !!token && !!currentTenant,
+  });
+
+  const { data: plansData } = useQuery<{ plans: Plan[] }>({
+    queryKey: ["billing-plans"],
+    queryFn: async () => {
+      const res = await fetch("/api/billing/plans");
+      if (!res.ok) throw new Error("Failed to fetch plans");
+      return res.json();
+    },
   });
 
   const saveMutation = useMutation({
@@ -235,17 +279,52 @@ export default function DeployPage() {
         method: "POST",
         headers,
       });
+      if (res.status === 402) {
+        const data = await res.json();
+        throw { code: data.code, message: data.message, isPaymentRequired: true };
+      }
       if (!res.ok) throw new Error("Failed to mark as live");
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["deploy-config"] });
+      queryClient.invalidateQueries({ queryKey: ["billing-status"] });
       toast({ title: "You're LIVE!", description: "Your platform is now publicly accessible." });
     },
-    onError: (err: Error) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    onError: (err: any) => {
+      if (err.isPaymentRequired) {
+        setShowPaywall(true);
+      } else {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      }
     },
   });
+
+  const handleSubscribe = async (planId: string) => {
+    setSubscribing(true);
+    try {
+      const res = await fetch("/api/billing/simulate-payment", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ planId }),
+      });
+      if (!res.ok) throw new Error("Payment failed");
+      const data = await res.json();
+      
+      toast({ 
+        title: "Subscription Active!", 
+        description: data.message 
+      });
+      
+      setShowPaywall(false);
+      refetchBilling();
+      queryClient.invalidateQueries({ queryKey: ["billing-status"] });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubscribing(false);
+    }
+  };
 
   if (configLoading) {
     return (
@@ -734,6 +813,121 @@ export default function DeployPage() {
             )}
           </CardContent>
         </Card>
+
+        {showPaywall && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-testid="paywall-overlay">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <CardHeader className="relative">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute right-4 top-4"
+                  onClick={() => setShowPaywall(false)}
+                  data-testid="close-paywall"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-3">
+                  <Lock className="h-8 w-8 text-primary" />
+                  <div>
+                    <CardTitle>Go Live Requires a Subscription</CardTitle>
+                    <CardDescription>
+                      Build and preview for free, subscribe to go live
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    Your platform is ready to go live! Choose a plan to unlock deployment and make your app publicly accessible.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {plansData?.plans.filter(p => p.key !== "free").map((plan) => (
+                    <div
+                      key={plan.key}
+                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all hover-elevate ${
+                        selectedPlan === plan.key
+                          ? "border-primary bg-primary/5"
+                          : "border-border"
+                      }`}
+                      onClick={() => setSelectedPlan(plan.key)}
+                      data-testid={`plan-${plan.key}`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold text-lg">{plan.name}</h3>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold">${plan.priceMonthly}</span>
+                            <span className="text-muted-foreground text-sm">/month</span>
+                          </div>
+                        </div>
+                        {plan.key === "pro" && (
+                          <Badge variant="secondary">Popular</Badge>
+                        )}
+                        {plan.key === "business" && (
+                          <Badge>Best Value</Badge>
+                        )}
+                      </div>
+                      <ul className="space-y-2">
+                        {plan.features.map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-sm">
+                            <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+
+                {billingStatus?.status === "active" && (
+                  <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg flex items-center gap-3">
+                    <Sparkles className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-700 dark:text-green-400">
+                        You have an active {billingStatus.plan} subscription!
+                      </p>
+                      <p className="text-sm text-green-600 dark:text-green-500">
+                        {billingStatus.liveAppsUsed} of {billingStatus.liveAppsLimit} live apps used
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowPaywall(false)}
+                    className="flex-1"
+                    data-testid="cancel-subscribe"
+                  >
+                    Maybe Later
+                  </Button>
+                  <Button
+                    onClick={() => handleSubscribe(selectedPlan)}
+                    disabled={subscribing}
+                    className="flex-1"
+                    data-testid="subscribe-button"
+                  >
+                    {subscribing ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <CreditCard className="h-4 w-4 mr-2" />
+                    )}
+                    Subscribe & Go Live
+                  </Button>
+                </div>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  You can cancel anytime. Payments are securely processed via Stripe.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

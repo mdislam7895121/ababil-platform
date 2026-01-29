@@ -58,7 +58,7 @@ import { healthRoutes } from './routes/health.js';
 import { preflightRoutes } from './routes/preflight.js';
 import { analyticsRoutes } from './routes/analytics.js';
 import { onboardingRoutes } from './routes/onboarding.js';
-import { billingRoutes, billingWebhookRouter } from './routes/billing.js';
+import { billingRoutes } from './routes/billing.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 
@@ -69,6 +69,12 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 
 // Middleware
 app.use(cors());
+
+// Stripe webhook needs raw body - mount BEFORE json parser
+import { billingWebhookRouter } from './routes/billing.js';
+app.use('/api/billing', express.raw({ type: 'application/json' }), billingWebhookRouter);
+
+// JSON parser for all other routes
 app.use(express.json());
 
 // Rate limiting
@@ -105,6 +111,17 @@ app.use('/api/auth', authLimiter, authRoutes);
 // Public preview routes (no auth required for viewing previews)
 app.use('/api/preview', apiLimiter, previewPublicRoutes);
 
+// Public billing plans endpoint
+app.get('/api/billing/plans', apiLimiter, async (req, res) => {
+  res.json({
+    plans: [
+      { key: 'free', name: 'Free', priceMonthly: 0, liveAppsLimit: 0, features: ['Unlimited Build & Preview', 'Cost Estimates', 'No Go-Live'] },
+      { key: 'pro', name: 'Pro', priceMonthly: 39, liveAppsLimit: 1, features: ['1 Live App', 'Full Platform Access', 'Email Support'] },
+      { key: 'business', name: 'Business', priceMonthly: 99, liveAppsLimit: 5, features: ['Up to 5 Live Apps', 'Priority Support', 'Custom Branding', 'API Access'] }
+    ]
+  });
+});
+
 // Protected routes
 app.use('/api/users', apiLimiter, authMiddleware, tenantMiddleware, userRoutes);
 app.use('/api/modules', apiLimiter, authMiddleware, tenantMiddleware, moduleRoutes);
@@ -126,9 +143,6 @@ app.use('/api/deploy/preflight', apiLimiter, authMiddleware, tenantMiddleware, p
 app.use('/api/analytics', apiLimiter, authMiddleware, tenantMiddleware, analyticsRoutes);
 app.use('/api/onboarding', apiLimiter, authMiddleware, tenantMiddleware, onboardingRoutes);
 app.use('/api/billing', apiLimiter, authMiddleware, tenantMiddleware, billingRoutes);
-
-// Stripe webhook (needs raw body, so mount before json parser would conflict)
-app.use('/api/billing', billingWebhookRouter);
 
 // Error handler with human-friendly messages
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
