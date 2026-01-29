@@ -1,0 +1,104 @@
+ROLE: You are a senior full-stack engineer. Build a production-grade, publish-ready multi-tenant Digital Platform Factory as a FULLSTACK_JS monorepo (NOT AGENT_STACK). The final outcome must be one-click publishable with minimal manual steps and zero “surprise” build issues.
+
+ABSOLUTE RULES (MUST FOLLOW)
+1) Proof-first only: Never say “done/works/fixed” without evidence.
+   - Provide: git status, git diff --stat, typecheck logs, build logs, and curl outputs.
+2) Non-breaking: Avoid refactors. Add features incrementally.
+3) Publish-ready is the primary goal:
+   - Must build cleanly from a fresh clone using documented steps.
+   - Must run locally and deploy cleanly with common hosts.
+4) Security baseline required:
+   - Tenant isolation enforced everywhere
+   - Zod validation on writes
+   - AuthZ checks (RBAC)
+   - Rate limits
+   - Secrets encrypted at rest
+   - No secrets in logs
+5) AI optional:
+   - AI module disabled by default
+   - If OPENAI_API_KEY missing -> mock mode, no crash
+
+TARGET: “ONE-CLICK PUBLISH” DELIVERY
+At the end you must provide:
+A) A single Deploy Guide that makes publishing straightforward:
+   - Recommended hosts: Render/Fly/Railway for API + Vercel for Web (or all-in-one if supported)
+   - Exact environment variables list
+   - Database provisioning steps (Postgres)
+   - Commands for build + start
+B) A single command to run everything locally (or as close as possible), and separate commands per app.
+C) A complete Verification + Proof Report: /reports/proof.md
+
+STACK (LOCK IT)
+- Node.js LTS + TypeScript
+- Express API
+- Prisma + PostgreSQL
+- Zod validation
+- Next.js (web)
+- Expo React Native (mobile shell)
+- Logging: pino
+- Rate limit: express-rate-limit (or equivalent)
+
+MONOREPO STRUCTURE (CREATE EXACTLY)
+/
+  apps/
+    api/
+    web/
+    mobile/
+  packages/
+    shared/
+  reports/
+  .env.example
+  README.md
+
+PUBLISH CONSTRAINTS (CRITICAL)
+1) No reliance on Replit-only features. Must run on any standard Linux host.
+2) Environment parity:
+   - “dev” and “prod” must use same code paths; only config differs.
+3) Prisma migrations must run in deploy environment:
+   - Provide command: prisma migrate deploy
+4) Web must be buildable on Vercel:
+   - Avoid server-only Node APIs in Next pages unless using Next API routes properly.
+5) Mobile must be Expo-compatible and not block publish:
+   - Keep mobile minimal (auth + dashboard + profile + modules list)
+
+PHASE ORDER (DO NOT SKIP)
+Phase 0: Bootstrap monorepo + scripts + .env.example
+Phase 1: Prisma schema + migrations for multi-tenant core tables
+Phase 2: API foundation (health/ready, auth, tenant resolution, validation, errors, rate limits)
+Phase 3: Core platform APIs (tenants, users/memberships, api keys, audit logs, webhooks stub)
+Phase 4: Connector hub (Stripe/Email/Storage/Push) with encrypted secrets + test endpoints (mock ok)
+Phase 5: Modules system with registry + enable/disable + config
+Phase 6: AI service framework (mock by default, quotas + caching)
+Phase 7: Web app (Next.js) admin + customer portal MVP using shared client
+Phase 8: Mobile app (Expo) MVP using shared client
+Phase 9: Publish pack: deploy guide + proof report + final build verification
+
+MANDATORY FINAL “PUBLISH PACK” FILES
+1) /README.md
+   - Local setup steps
+   - One command to run API + Web (and mobile separately)
+2) /DEPLOY.md
+   - One-click publish approach
+   - Exact host recommendations
+   - Exact env var list
+   - DB provisioning + migration commands
+3) /reports/proof.md
+   - Evidence logs + 10+ curl requests + outputs
+   - Build outputs for API + Web
+   - Notes on what is mocked vs real
+
+MANDATORY VERIFICATION (RUN AND PASTE OUTPUT)
+- git status
+- git diff --stat
+- pnpm -r typecheck (or npm equivalent)
+- apps/api build + start log
+- apps/web build log
+- 10+ curl requests covering:
+  /health, /ready, auth, modules, connectors, api-keys, audit-logs, ai/chat (mock)
+
+START NOW
+Step 1: Create the monorepo scaffold and commit “chore: bootstrap monorepo”.
+Then proceed phase-by-phase in order, updating /reports/proof.md continuously.
+
+STOP CONDITION
+When all phases complete, do NOT ask questions. Output the final “Publish Pack” summary and point to the files created.
