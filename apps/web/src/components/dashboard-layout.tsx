@@ -20,11 +20,13 @@ import {
   Sun,
   Menu,
   X,
+  Wand2,
 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/builder", label: "Builder", icon: Wand2 },
   { href: "/dashboard/users", label: "Users", icon: Users },
   { href: "/dashboard/api-keys", label: "API Keys", icon: Key },
   { href: "/dashboard/modules", label: "Modules", icon: Puzzle },

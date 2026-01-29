@@ -12,6 +12,11 @@ export interface AuthRequest extends Request {
     id: string;
     role: string;
   };
+  user?: {
+    id: string;
+    email: string;
+    name: string;
+  };
 }
 
 export async function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
@@ -108,6 +113,14 @@ export async function tenantMiddleware(req: AuthRequest, res: Response, next: Ne
       role: membership.role
     };
 
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { id: true, email: true, name: true }
+    });
+    if (user) {
+      req.user = user;
+    }
+
     next();
   } catch (error) {
     console.error('Tenant middleware error:', error);
@@ -115,13 +128,23 @@ export async function tenantMiddleware(req: AuthRequest, res: Response, next: Ne
   }
 }
 
+const ROLE_HIERARCHY: Record<string, number> = {
+  owner: 4,
+  admin: 3,
+  staff: 2,
+  viewer: 1
+};
+
 export function requireRole(...roles: string[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.membership) {
       return res.status(403).json({ error: 'No membership found' });
     }
 
-    if (!roles.includes(req.membership.role)) {
+    const userRoleLevel = ROLE_HIERARCHY[req.membership.role] || 0;
+    const requiredLevel = Math.min(...roles.map(r => ROLE_HIERARCHY[r] || 0));
+
+    if (userRoleLevel < requiredLevel) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 

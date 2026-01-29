@@ -10,6 +10,7 @@ A production-grade multi-tenant Digital Platform Factory for building and managi
 - **Module System**: Pluggable feature modules (booking, ecommerce, crm, support, analytics, ai_assistant)
 - **Connector Hub**: Third-party integrations with encrypted secrets (Stripe, Email, Storage, Push)
 - **AI Assistant**: Optional OpenAI integration with cost controls (quotas, caching, mock mode)
+- **Prompt Builder Engine**: Build from natural language prompts - automatically configures modules, workflows, and sample data
 - **Audit Logging**: Comprehensive activity tracking
 - **Professional UI**: Enterprise admin dashboard with light/dark mode
 
@@ -56,19 +57,22 @@ A production-grade multi-tenant Digital Platform Factory for building and managi
 ## Project Structure
 
 ```
-├── client/                 # React frontend (Vite)
-│   ├── src/
-│   │   ├── components/     # UI components
-│   │   ├── pages/          # Route pages
-│   │   ├── lib/            # Utilities and auth
-│   │   └── hooks/          # Custom React hooks
-├── server/                 # Express backend
-│   ├── routes.ts           # API endpoints
-│   ├── storage.ts          # Database operations
-│   ├── auth.ts             # Authentication
-│   └── ai.ts               # AI service
-├── shared/                 # Shared types and schemas
-│   └── schema.ts           # Drizzle ORM schema
+├── apps/
+│   ├── api/                # Express + TypeScript + Prisma backend
+│   │   ├── src/
+│   │   │   ├── routes/     # API route handlers
+│   │   │   ├── lib/        # Utilities, templates, audit
+│   │   │   └── middleware/ # Auth middleware
+│   │   └── prisma/         # Prisma schema
+│   ├── web/                # Next.js 14 web dashboard
+│   │   └── src/
+│   │       ├── app/        # App Router pages
+│   │       └── components/ # UI components
+│   └── mobile/             # Expo mobile app
+│       └── app/            # Expo Router screens
+├── packages/
+│   └── shared/             # Shared Zod schemas, types, RBAC utilities
+├── server/                 # Entry point shim (imports apps/api)
 └── reports/                # Documentation
     └── proof.md            # Verification report
 ```
@@ -108,6 +112,13 @@ A production-grade multi-tenant Digital Platform Factory for building and managi
 - `POST /api/ai/chat` - Send chat message
 - `GET /api/ai/usage` - Get usage statistics
 
+### Builder (Prompt-to-Platform)
+- `GET /api/builder/templates` - List available templates
+- `POST /api/builder/draft` - Generate blueprint from prompt
+- `POST /api/builder/approve` - Approve blueprint
+- `POST /api/builder/run` - Execute build
+- `GET /api/builder/requests` - List build requests
+
 ## Security
 
 - **Authentication**: JWT tokens with secure signing
@@ -126,9 +137,10 @@ See [DEPLOY.md](./DEPLOY.md) for detailed deployment instructions including:
 
 ## Tech Stack
 
-- **Frontend**: React, Vite, Tailwind CSS, shadcn/ui
+- **Frontend**: Next.js 14, React, Tailwind CSS, shadcn/ui
+- **Mobile**: Expo with Expo Router
 - **Backend**: Express.js, TypeScript
-- **Database**: PostgreSQL with Drizzle ORM
+- **Database**: PostgreSQL with Prisma ORM
 - **Auth**: JWT, scrypt
 - **AI**: OpenAI (optional)
 
