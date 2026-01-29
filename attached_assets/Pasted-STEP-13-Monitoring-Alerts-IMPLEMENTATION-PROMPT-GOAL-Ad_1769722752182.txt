@@ -1,0 +1,100 @@
+STEP 13 (Monitoring + Alerts) — IMPLEMENTATION PROMPT
+
+GOAL
+Add proactive monitoring and alerts so production issues are detected early,
+golden flows are continuously verified, and incidents are visible to admins.
+This protects brand reputation and reduces support load.
+
+NON-NEGOTIABLE RULES
+1) Additive only. Do NOT refactor existing routes/business logic.
+2) Must reuse STEP 10 jobs infrastructure (scheduler + JobRun).
+3) Golden Flows to monitor:
+   F1 Landing → Onboarding
+   F2 Onboarding → Preview
+   F3 Preview → Billing/Paywall
+   F4 Payment → Go-Live unlocked
+4) Alerts must be actionable and rate-limited (no spam).
+5) Proof-first with raw outputs/logs/screenshots.
+
+WHAT TO BUILD
+
+A) Synthetic Checks (Jobs)
+Create jobs under apps/api/src/jobs/monitoring/:
+- checkApiHealth.ts
+- checkWebHealth.ts
+- checkGoldenFlows.ts
+
+Schedules:
+- API/Web health: every 5 minutes
+- Golden flows: every 30 minutes
+
+Behavior:
+- Each job records JobRun with status success|failed
+- On failure, include details (endpoint, status code, error)
+- Do NOT mutate data; read-only checks only
+
+B) Incident Model
+Add Prisma model: Incident
+Fields:
+- id
+- type (api_down | web_down | golden_flow_failed)
+- severity (low | medium | high)
+- message
+- details (json)
+- firstSeenAt
+- lastSeenAt
+- resolvedAt (nullable)
+- createdAt
+
+Rules:
+- De-duplicate incidents (same type+message within window)
+- Update lastSeenAt on repeats
+- Auto-resolve when checks pass again
+
+C) Alerting
+- Email alerts (use existing email abstraction or console stub if email not configured)
+- Throttle alerts (e.g., once per incident per hour)
+- Audit log event: INCIDENT_RAISED, INCIDENT_RESOLVED
+
+D) Admin UI
+Create pages:
+- /dashboard/monitoring
+  - Current status (green/yellow/red)
+  - Active incidents list
+  - Last check times
+- /dashboard/monitoring/incidents
+  - Incident history with filters
+  - Resolution timestamps
+
+E) Status Summary API
+- GET /api/monitoring/status
+Returns:
+{
+  overallStatus,
+  lastChecks,
+  activeIncidentsCount
+}
+
+F) Security
+- Admin/Owner only for monitoring pages and APIs
+- Tenant isolation respected (platform-level incidents visible to platform admins)
+
+PROOF REQUIRED (MANDATORY)
+1) Logs showing monitoring jobs scheduled and executed
+2) API proof:
+   - GET /api/monitoring/status (admin → 200, staff → 403)
+3) Incident lifecycle proof:
+   - Simulate a failure (e.g., temporarily point a check to a bad endpoint)
+   - Show Incident created
+   - Restore endpoint
+   - Show Incident resolved
+4) UI screenshots:
+   - Monitoring dashboard with status indicator
+   - Incident list with at least one resolved incident
+5) verify.sh PASS + smoke.sh PASS
+6) Update reports/step13-proof.md with logs, curl outputs, screenshots
+7) List changed files + git status
+
+STOP CONDITION
+Stop after STEP 13 proof is delivered.
+Do NOT start STEP 14.

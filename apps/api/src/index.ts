@@ -69,6 +69,7 @@ import jobsRoutes from './routes/jobs.js';
 import exportsRoutes from './routes/exports.js';
 import backupsRoutes from './routes/backups.js';
 import tenantsRoutes from './routes/tenants.js';
+import monitoringRoutes from './routes/monitoring.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 import { startScheduler } from './jobs/index.js';
@@ -211,6 +212,7 @@ app.use('/api/resellers', apiLimiter, authMiddleware, tenantMiddleware, reseller
 app.use('/api/jobs', apiLimiter, authMiddleware, tenantMiddleware, jobsRoutes);
 app.use('/api/exports', apiLimiter, authMiddleware, tenantMiddleware, exportsRoutes);
 app.use('/api/backups', apiLimiter, authMiddleware, tenantMiddleware, backupsRoutes);
+app.use('/api/monitoring', apiLimiter, authMiddleware, tenantMiddleware, monitoringRoutes);
 app.use('/api/tenants', apiLimiter, authMiddleware, tenantMiddleware, tenantsRoutes);
 
 // Error handler with human-friendly messages

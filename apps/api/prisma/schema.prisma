@@ -500,3 +500,21 @@ model BackupSnapshot {
   @@index([tenantId])
   @@map("backup_snapshots")
 }
+
+model Incident {
+  id          String    @id @default(uuid())
+  type        String    // api_down | web_down | golden_flow_failed
+  severity    String    @default("medium") // low | medium | high
+  message     String
+  details     Json      @default("{}")
+  firstSeenAt DateTime  @map("first_seen_at")
+  lastSeenAt  DateTime  @map("last_seen_at")
+  resolvedAt  DateTime? @map("resolved_at")
+  alertSentAt DateTime? @map("alert_sent_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([type])
+  @@index([resolvedAt])
+  @@index([firstSeenAt])
+  @@map("incidents")
+}

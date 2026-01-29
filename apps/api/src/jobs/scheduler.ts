@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { cleanupPreviewSessions } from "./cleanupPreviewSessions";
 import { cleanupI18nCache } from "./cleanupI18nCache";
 import { cleanupExports } from "./cleanupExports";
+import { checkApiHealth, checkWebHealth, checkGoldenFlows } from "./monitoring";
 
 const prisma = new PrismaClient();
 
@@ -82,10 +83,25 @@ export function startScheduler() {
     await runJob("cleanupExports", cleanupExports);
   });
 
+  cron.schedule("*/5 * * * *", async () => {
+    await runJob("checkApiHealth", checkApiHealth);
+  });
+
+  cron.schedule("*/5 * * * *", async () => {
+    await runJob("checkWebHealth", checkWebHealth);
+  });
+
+  cron.schedule("*/30 * * * *", async () => {
+    await runJob("checkGoldenFlows", checkGoldenFlows);
+  });
+
   console.log("[Jobs] Scheduled jobs:");
   console.log("  - cleanupPreviewSessions: every 6 hours (0 */6 * * *)");
   console.log("  - cleanupI18nCache: daily at 3am (0 3 * * *)");
   console.log("  - cleanupExports: every 4 hours (0 */4 * * *)");
+  console.log("  - checkApiHealth: every 5 minutes (*/5 * * * *)");
+  console.log("  - checkWebHealth: every 5 minutes (*/5 * * * *)");
+  console.log("  - checkGoldenFlows: every 30 minutes (*/30 * * * *)");
 }
 
 export async function runJobManually(jobName: string) {
@@ -96,6 +112,12 @@ export async function runJobManually(jobName: string) {
       return runJob("cleanupI18nCache", cleanupI18nCache);
     case "cleanupExports":
       return runJob("cleanupExports", cleanupExports);
+    case "checkApiHealth":
+      return runJob("checkApiHealth", checkApiHealth);
+    case "checkWebHealth":
+      return runJob("checkWebHealth", checkWebHealth);
+    case "checkGoldenFlows":
+      return runJob("checkGoldenFlows", checkGoldenFlows);
     default:
       throw new Error(`Unknown job: ${jobName}`);
   }
@@ -109,6 +131,9 @@ export function getSchedulerStatus() {
       { name: "cleanupPreviewSessions", schedule: "0 */6 * * *", description: "Cleanup expired preview sessions" },
       { name: "cleanupI18nCache", schedule: "0 3 * * *", description: "Cleanup old i18n cache entries" },
       { name: "cleanupExports", schedule: "0 */4 * * *", description: "Cleanup expired export files" },
+      { name: "checkApiHealth", schedule: "*/5 * * * *", description: "Check API health endpoints" },
+      { name: "checkWebHealth", schedule: "*/5 * * * *", description: "Check web frontend health" },
+      { name: "checkGoldenFlows", schedule: "*/30 * * * *", description: "Check critical user flows" },
     ],
   };
 }
