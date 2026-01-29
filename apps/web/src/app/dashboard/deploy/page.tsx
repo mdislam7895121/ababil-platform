@@ -27,7 +27,11 @@ import {
   Lock,
   Sparkles,
   X,
+  Package,
+  Download,
+  RefreshCw,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface DeployConfig {
   configured: boolean;
@@ -88,6 +92,33 @@ interface BillingStatus {
   message: string;
 }
 
+interface DeployPack {
+  id: string;
+  provider: string;
+  appName: string;
+  appUrl: string | null;
+  status: string;
+  downloadUrl: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+interface VerificationRun {
+  id: string;
+  appUrl: string;
+  status: string;
+  checks: Array<{ name: string; passed: boolean; message: string }>;
+  guidance: string | null;
+  createdAt: string;
+}
+
+interface PreflightCheck {
+  ready: boolean;
+  hasWarnings: boolean;
+  checks: Array<{ key: string; status: 'pass' | 'fail' | 'warn'; message: string; fix?: string }>;
+  canGoLive: boolean;
+}
+
 interface Plan {
   key: string;
   name: string;
@@ -119,6 +150,10 @@ export default function DeployPage() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>("pro");
   const [subscribing, setSubscribing] = useState(false);
+  
+  const [packProvider, setPackProvider] = useState<string>("render");
+  const [packAppName, setPackAppName] = useState<string>("");
+  const [remoteVerifyUrl, setRemoteVerifyUrl] = useState<string>("");
 
   const headers = {
     Authorization: `Bearer ${token}`,
@@ -173,6 +208,36 @@ export default function DeployPage() {
       if (!res.ok) throw new Error("Failed to fetch plans");
       return res.json();
     },
+  });
+
+  const { data: packsData, isLoading: packsLoading } = useQuery<{ packs: DeployPack[] }>({
+    queryKey: ["deploy-packs", currentTenant?.id],
+    queryFn: async () => {
+      const res = await fetch("/api/deploy/packs", { headers });
+      if (!res.ok) throw new Error("Failed to fetch packs");
+      return res.json();
+    },
+    enabled: !!token && !!currentTenant,
+  });
+
+  const { data: verifyRunsData } = useQuery<{ runs: VerificationRun[] }>({
+    queryKey: ["deploy-verify-runs", currentTenant?.id],
+    queryFn: async () => {
+      const res = await fetch("/api/deploy/verify/runs", { headers });
+      if (!res.ok) throw new Error("Failed to fetch verify runs");
+      return res.json();
+    },
+    enabled: !!token && !!currentTenant,
+  });
+
+  const { data: preflightData } = useQuery<PreflightCheck>({
+    queryKey: ["deploy-preflight", currentTenant?.id],
+    queryFn: async () => {
+      const res = await fetch("/api/deploy/preflight", { headers });
+      if (!res.ok) throw new Error("Failed to fetch preflight");
+      return res.json();
+    },
+    enabled: !!token && !!currentTenant,
   });
 
   const saveMutation = useMutation({
@@ -266,6 +331,58 @@ export default function DeployPage() {
         toast({ title: "Pre-flight passed", description: "Ready to deploy!" });
       } else {
         toast({ title: "Pre-flight failed", description: data.message, variant: "destructive" });
+      }
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const generatePackMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/deploy/packs/generate", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ provider: packProvider, appName: packAppName, appUrl: config?.appUrl }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to generate pack");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["deploy-packs"] });
+      toast({ title: "Deploy pack generated!", description: `Your ${data.provider} deploy pack is ready to download.` });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const remoteVerifyMutation = useMutation<VerificationRun>({
+    mutationFn: async () => {
+      const res = await fetch("/api/deploy/verify/run", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ appUrl: remoteVerifyUrl }),
+      });
+      if (res.status === 429) {
+        const err = await res.json();
+        throw new Error(err.message || "Rate limit exceeded. Try again later.");
+      }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Verification failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["deploy-verify-runs"] });
+      if (data.status === "pass") {
+        toast({ title: "Verification passed!", description: data.guidance || "All checks passed." });
+      } else {
+        toast({ title: "Verification failed", description: data.guidance || "Some checks failed.", variant: "destructive" });
       }
     },
     onError: (err: Error) => {
@@ -773,6 +890,279 @@ export default function DeployPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Deploy Packs Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Deploy Packs
+            </CardTitle>
+            <CardDescription>
+              Generate provider-specific deployment configurations
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>Provider</Label>
+                <Select value={packProvider} onValueChange={setPackProvider}>
+                  <SelectTrigger data-testid="select-pack-provider">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="render">Render</SelectItem>
+                    <SelectItem value="railway">Railway</SelectItem>
+                    <SelectItem value="fly">Fly.io</SelectItem>
+                    <SelectItem value="docker">Docker</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="packAppName">App Name</Label>
+                <Input
+                  id="packAppName"
+                  placeholder="my-platform"
+                  value={packAppName}
+                  onChange={(e) => setPackAppName(e.target.value)}
+                  data-testid="input-pack-app-name"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  onClick={() => generatePackMutation.mutate()}
+                  disabled={generatePackMutation.isPending || !packAppName}
+                  className="w-full"
+                  data-testid="generate-pack"
+                >
+                  {generatePackMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Package className="h-4 w-4 mr-2" />
+                  )}
+                  Generate Pack
+                </Button>
+              </div>
+            </div>
+
+            {packsLoading ? (
+              <div className="flex justify-center p-4">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : packsData?.packs && packsData.packs.length > 0 ? (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground">Generated Packs</h4>
+                {packsData.packs.slice(0, 5).map((pack) => (
+                  <div key={pack.id} className="flex items-center justify-between p-3 border rounded">
+                    <div className="flex items-center gap-3">
+                      <Badge variant={pack.status === "ready" ? "default" : "secondary"}>
+                        {pack.provider.toUpperCase()}
+                      </Badge>
+                      <span className="font-medium">{pack.appName}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(pack.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {pack.status === "ready" && pack.downloadUrl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(pack.downloadUrl!, "_blank")}
+                        data-testid={`download-pack-${pack.id}`}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Download
+                      </Button>
+                    )}
+                    {pack.status === "generating" && (
+                      <Badge variant="outline">
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Generating...
+                      </Badge>
+                    )}
+                    {pack.expiresAt && new Date(pack.expiresAt) < new Date() && (
+                      <Badge variant="destructive">Expired</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">No deploy packs generated yet</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Remote Verification Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" />
+              Remote Verification
+            </CardTitle>
+            <CardDescription>
+              Verify a deployed application is working correctly (30 checks/hour limit)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="https://your-app.onrender.com"
+                value={remoteVerifyUrl}
+                onChange={(e) => setRemoteVerifyUrl(e.target.value)}
+                className="flex-1"
+                data-testid="input-remote-verify-url"
+              />
+              <Button
+                onClick={() => remoteVerifyMutation.mutate()}
+                disabled={remoteVerifyMutation.isPending || !remoteVerifyUrl}
+                data-testid="run-remote-verify"
+              >
+                {remoteVerifyMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4 mr-2" />
+                )}
+                Verify
+              </Button>
+            </div>
+
+            {remoteVerifyMutation.data && (
+              <div className="space-y-2">
+                <div className={`p-3 rounded-lg flex items-center gap-2 ${
+                  remoteVerifyMutation.data.status === "pass"
+                    ? "bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400"
+                    : "bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400"
+                }`}>
+                  {remoteVerifyMutation.data.status === "pass" ? (
+                    <CheckCircle className="h-5 w-5" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5" />
+                  )}
+                  <span className="font-medium">
+                    {remoteVerifyMutation.data.status === "pass" ? "All checks passed!" : "Some checks failed"}
+                  </span>
+                </div>
+
+                {remoteVerifyMutation.data.guidance && (
+                  <p className="text-sm text-muted-foreground">{remoteVerifyMutation.data.guidance}</p>
+                )}
+
+                <div className="space-y-1">
+                  {remoteVerifyMutation.data.checks.map((check, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 border rounded text-sm">
+                      <span>{check.name.replace(/_/g, " ")}</span>
+                      <div className="flex items-center gap-2">
+                        {check.passed ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-red-600" />
+                        )}
+                        <span className="text-xs text-muted-foreground max-w-[200px] truncate">{check.message}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {verifyRunsData?.runs && verifyRunsData.runs.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground">Recent Verification Runs</h4>
+                {verifyRunsData.runs.slice(0, 5).map((run) => (
+                  <div key={run.id} className="flex items-center justify-between p-2 border rounded text-sm">
+                    <div className="flex items-center gap-2">
+                      {run.status === "pass" ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className="truncate max-w-[200px]">{run.appUrl}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(run.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Preflight Checks Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Preflight Checks
+            </CardTitle>
+            <CardDescription>
+              Verify your environment is configured correctly before going live
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {preflightData ? (
+              <div className="space-y-3">
+                <div className={`p-3 rounded-lg flex items-center gap-2 ${
+                  preflightData.ready
+                    ? "bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400"
+                    : preflightData.hasWarnings
+                    ? "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400"
+                    : "bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400"
+                }`}>
+                  {preflightData.ready ? (
+                    <CheckCircle className="h-5 w-5" />
+                  ) : preflightData.hasWarnings ? (
+                    <AlertCircle className="h-5 w-5" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5" />
+                  )}
+                  <span className="font-medium">
+                    {preflightData.ready 
+                      ? "All preflight checks passed" 
+                      : preflightData.hasWarnings 
+                      ? "Some warnings found" 
+                      : "Preflight checks failed"}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {preflightData.checks.map((check) => (
+                    <div key={check.key} className="flex items-center justify-between p-2 border rounded text-sm">
+                      <div className="flex items-center gap-2">
+                        {check.status === "pass" ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : check.status === "warn" ? (
+                          <AlertCircle className="h-4 w-4 text-amber-600" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-red-600" />
+                        )}
+                        <span>{check.key.replace(/_/g, " ")}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{check.message}</span>
+                        {check.fix && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => copyToClipboard(check.fix!)}
+                            className="h-6 px-2"
+                            data-testid={`copy-fix-${check.key}`}
+                          >
+                            <ClipboardCopy className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-center p-4">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
