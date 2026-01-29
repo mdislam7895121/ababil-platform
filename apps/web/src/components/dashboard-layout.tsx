@@ -33,6 +33,8 @@ import {
   TrendingUp,
   CreditCard,
   Receipt,
+  Building2,
+  Store,
 } from "lucide-react";
 import { useState } from "react";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -48,6 +50,8 @@ const navItems = [
   { href: "/dashboard/deploy", label: "Deploy", icon: Rocket },
   { href: "/dashboard/revenue", label: "Revenue", icon: TrendingUp, roles: ["owner", "admin"] },
   { href: "/dashboard/payments", label: "Payments", icon: Receipt, roles: ["owner", "admin"] },
+  { href: "/dashboard/reseller", label: "My Reseller", icon: Store },
+  { href: "/dashboard/resellers", label: "Manage Resellers", icon: Building2, roles: ["owner", "admin"] },
   { href: "/dashboard/users", label: "Users", icon: Users },
   { href: "/dashboard/api-keys", label: "API Keys", icon: Key },
   { href: "/dashboard/modules", label: "Modules", icon: Puzzle },
