@@ -310,18 +310,19 @@ export default function DeployPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {PROVIDERS.map((p) => (
-                  <Button
+                  <div
                     key={p.value}
-                    variant={provider === p.value ? "default" : "outline"}
-                    className="justify-start h-auto py-3"
+                    className={`p-3 rounded-md border cursor-pointer transition-colors hover-elevate ${
+                      provider === p.value 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border hover:border-primary/50"
+                    }`}
                     onClick={() => setProvider(p.value)}
                     data-testid={`provider-${p.value.toLowerCase()}`}
                   >
-                    <div className="text-left">
-                      <div className="font-medium">{p.label}</div>
-                      {p.recommended && <Badge variant="secondary" className="text-xs mt-1">Recommended</Badge>}
-                    </div>
-                  </Button>
+                    <div className="font-medium">{p.label}</div>
+                    {p.recommended && <Badge variant="secondary" className="text-xs mt-1">Recommended</Badge>}
+                  </div>
                 ))}
               </div>
               <Button onClick={() => setStep(2)} className="w-full" data-testid="next-step-2">
@@ -598,7 +599,7 @@ export default function DeployPage() {
               <Button 
                 onClick={() => setStep(6)} 
                 className="w-full" 
-                disabled={preflightResult && !preflightResult.canDeploy}
+                disabled={preflightResult ? !preflightResult.canDeploy : false}
                 data-testid="next-step-6"
               >
                 <Play className="h-4 w-4 mr-2" />
@@ -675,7 +676,7 @@ export default function DeployPage() {
                         <Button
                           onClick={() => goLiveMutation.mutate()}
                           disabled={goLiveMutation.isPending}
-                          className="w-full bg-green-600 hover:bg-green-700"
+                          className="w-full"
                           data-testid="go-live"
                         >
                           {goLiveMutation.isPending ? (
