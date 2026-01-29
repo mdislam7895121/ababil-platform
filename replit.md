@@ -95,3 +95,31 @@ The `npm run dev` command starts the Express API server on port 5000. The server
 For the Next.js web dashboard, run `cd apps/web && npm run dev` (runs on port 3000).
 
 For the Expo mobile app, run `cd apps/mobile && npx expo start`.
+
+## Phase 1 Features (Demand-Focused Upgrade)
+
+### Post-Build Checklist
+- **API**: `/api/checklist` - Get checklist items, progress, and blocking items
+- **Endpoints**: `GET /`, `POST /complete`, `POST /reset`
+- Tracks required vs optional items, shows what's blocking go-live
+
+### Live Preview Mode
+- **API**: `/api/preview` - Create shareable preview sessions
+- **Endpoints**: `POST /create`, `GET /validate`, `GET /demo-data`, `GET /sessions`, `DELETE /sessions/:id`
+- Role-based previews (admin/staff/customer), 24-hour expiry, demo data clearly marked
+
+### Industry Presets
+- **API**: `/api/presets` - Get and apply industry-specific configurations
+- **Endpoints**: `GET /`, `GET /:templateKey/:presetKey`, `POST /apply`, `GET /applied`
+- Templates: booking (salon, clinic, gym), ecommerce (grocery, clothing, pharmacy), crm, support
+- Applied preset stored in tenant.settings
+
+### Cost Transparency Panel
+- **API**: `/api/costs` - Get monthly cost estimates
+- Breakdown by category: hosting, database, email, AI, platform
+- Shows what's paid to whom with min/max estimates
+
+### Human-Friendly Error Messages
+- **Location**: `apps/api/src/lib/errors.ts`
+- Error types: DATABASE_CONNECTION_FAILED, JWT_SECRET_MISSING, ENCRYPTION_KEY_INVALID, etc.
+- Each error includes actionable guidance for the user
