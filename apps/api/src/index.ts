@@ -1,7 +1,43 @@
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import { spawn } from 'child_process';
 import { PrismaClient } from '@prisma/client';
+
+// Start Next.js as a child process
+const startNextJs = () => {
+  console.log('Starting Next.js web dashboard on port 3000...');
+  const next = spawn('npx', ['next', 'dev', '-p', '3000'], {
+    cwd: 'apps/web',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env }
+  });
+  
+  next.stdout?.on('data', (data) => {
+    const msg = data.toString().trim();
+    if (msg) console.log(`[web] ${msg}`);
+  });
+  
+  next.stderr?.on('data', (data) => {
+    const msg = data.toString().trim();
+    if (msg) console.error(`[web] ${msg}`);
+  });
+  
+  next.on('close', (code) => {
+    if (code !== 0) {
+      console.error(`[web] Next.js exited with code ${code}, restarting...`);
+      setTimeout(startNextJs, 3000);
+    }
+  });
+  
+  return next;
+};
+
+// Start Next.js in development mode
+if (process.env.NODE_ENV === 'development') {
+  startNextJs();
+}
 import { authRoutes } from './routes/auth.js';
 import { userRoutes } from './routes/users.js';
 import { moduleRoutes } from './routes/modules.js';
@@ -96,6 +132,16 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   });
 });
 
+// Proxy non-API routes to Next.js web dashboard (port 3000)
+const NEXT_JS_URL = process.env.NEXT_JS_URL || 'http://localhost:3000';
+app.use('/', createProxyMiddleware({
+  target: NEXT_JS_URL,
+  changeOrigin: true,
+  ws: true,
+  pathFilter: (path: string) => !path.startsWith('/api')
+}));
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`API server running on port ${PORT}`);
+  console.log(`Proxying non-API routes to ${NEXT_JS_URL}`);
 });
