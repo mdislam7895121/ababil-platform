@@ -1180,6 +1180,9 @@ video {
 .whitespace-nowrap {
   white-space: nowrap;
 }
+.text-balance {
+  text-wrap: balance;
+}
 .break-all {
   word-break: break-all;
 }
@@ -1491,6 +1494,10 @@ video {
 .py-4 {
   padding-top: 1rem;
   padding-bottom: 1rem;
+}
+.py-6 {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
 }
 .py-8 {
   padding-top: 2rem;

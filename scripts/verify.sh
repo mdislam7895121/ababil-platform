@@ -206,6 +206,10 @@ check_endpoint "${API_URL}/api/deploy/preflight" 401 "GET /api/deploy/preflight 
 print_step "Checking reseller system..."
 check_endpoint "${API_URL}/api/resellers/branding/lookup" 200 "GET /api/resellers/branding/lookup (public)" || true
 
+print_step "Checking reseller payout system..."
+check_endpoint "${API_URL}/api/resellers/my/payouts" 401 "GET /api/resellers/my/payouts (requires auth)" || true
+check_endpoint "${API_URL}/api/resellers/my/ledger" 401 "GET /api/resellers/my/ledger (requires auth)" || true
+
 # ══════════════════════════════════════════════════════════════════════════════
 # FINAL REPORT
 # ══════════════════════════════════════════════════════════════════════════════

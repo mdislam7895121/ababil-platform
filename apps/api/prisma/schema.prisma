@@ -64,6 +64,7 @@ model User {
   builderRequests  BuilderRequest[]
   approvedPayments ManualPayment[]
   ownedResellers   Reseller[]
+  approvedPayouts  ResellerPayout[]
 
   @@map("users")
 }
@@ -397,6 +398,7 @@ model Invoice {
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   manualPayment ManualPayment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   reseller      Reseller?      @relation(fields: [resellerId], references: [id], onDelete: SetNull)
+  ledgerEntries ResellerLedgerEntry[]
 
   @@map("invoices")
 }
@@ -431,9 +433,11 @@ model Reseller {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  owner    User      @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  tenants  Tenant[]
-  invoices Invoice[]
+  owner         User      @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  tenants       Tenant[]
+  invoices      Invoice[]
+  payouts       ResellerPayout[]
+  ledgerEntries ResellerLedgerEntry[]
 
   @@map("resellers")
 }
@@ -452,6 +456,54 @@ model ResellerStatement {
 
   @@unique([resellerId, periodStart])
   @@map("reseller_statements")
+}
+
+model ResellerPayout {
+  id            String    @id @default(uuid())
+  resellerId    String    @map("reseller_id")
+  periodStart   DateTime  @map("period_start")
+  periodEnd     DateTime  @map("period_end")
+  currency      String    @default("USD")
+  grossRevenue  Decimal   @map("gross_revenue") @db.Decimal(12, 2)
+  commissionEarned Decimal @map("commission_earned") @db.Decimal(12, 2)
+  adjustments   Decimal   @default(0) @db.Decimal(12, 2)
+  netPayable    Decimal   @map("net_payable") @db.Decimal(12, 2)
+  status        String    @default("owed") // owed|approved|paid|void
+  approvedAt    DateTime? @map("approved_at")
+  approvedById  String?   @map("approved_by_id")
+  paidAt        DateTime? @map("paid_at")
+  payoutMethod  String?   @map("payout_method") // bank|bkash|stripe|manual
+  payoutDetails Json?     @map("payout_details")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  reseller   Reseller @relation(fields: [resellerId], references: [id], onDelete: Cascade)
+  approvedBy User?    @relation(fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@unique([resellerId, periodStart, periodEnd, currency])
+  @@index([resellerId])
+  @@index([status])
+  @@map("reseller_payouts")
+}
+
+model ResellerLedgerEntry {
+  id         String   @id @default(uuid())
+  resellerId String   @map("reseller_id")
+  invoiceId  String?  @map("invoice_id")
+  currency   String   @default("USD")
+  type       String   // commission_accrual|adjustment|payout
+  amount     Decimal  @db.Decimal(12, 2) // positive for accrual, negative for payout
+  note       String?
+  occurredAt DateTime @map("occurred_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  reseller Reseller @relation(fields: [resellerId], references: [id], onDelete: Cascade)
+  invoice  Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@unique([resellerId, invoiceId, type])
+  @@index([resellerId])
+  @@index([occurredAt])
+  @@map("reseller_ledger_entries")
 }
 
 model JobRun {

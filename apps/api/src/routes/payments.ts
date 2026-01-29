@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { prisma } from '../index.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
 import { paymentsManualLimiter, paymentsApproveLimiter } from '../middleware/rateLimit.js';
+import { createLedgerAccrualForInvoice } from './resellers.js';
 
 const router = Router();
 
@@ -189,6 +190,13 @@ router.post('/manual/:id/approve', paymentsApproveLimiter, requireRole('owner', 
       where: { paymentId: id },
       data: { status: 'paid', paidAt: new Date() }
     });
+
+    const paidInvoices = await prisma.invoice.findMany({
+      where: { paymentId: id, status: 'paid' }
+    });
+    for (const inv of paidInvoices) {
+      await createLedgerAccrualForInvoice(inv.id);
+    }
 
     const planLimits: Record<string, number> = { pro: 1, business: 5 };
     
