@@ -1,9 +1,10 @@
 import express from 'express';
-import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { spawn } from 'child_process';
 import { PrismaClient } from '@prisma/client';
+import { securityHeaders, corsMiddleware, permissionsPolicy, bodyLimits, validateJwtSecret } from './middleware/security.js';
+import { safeLog, createSafeErrorLog } from './lib/redact.js';
 
 // Start Next.js as a child process
 const startNextJs = () => {
@@ -82,15 +83,21 @@ const PORT = parseInt(process.env.PORT || '5000', 10);
 // Trust proxy for accurate client IP detection behind reverse proxies
 app.set('trust proxy', 1);
 
-// Middleware
-app.use(cors());
+// Validate JWT secret on startup
+validateJwtSecret();
+
+// Security middleware
+app.use(securityHeaders);
+app.use(permissionsPolicy);
+app.use(corsMiddleware);
 
 // Stripe webhook needs raw body - mount BEFORE json parser
 import { billingWebhookRouter } from './routes/billing.js';
 app.use('/api/billing', express.raw({ type: 'application/json' }), billingWebhookRouter);
 
-// JSON parser for all other routes
-app.use(express.json());
+// JSON parser with body size limit
+app.use(express.json({ limit: bodyLimits.default }));
+app.use(express.urlencoded({ extended: true, limit: bodyLimits.default }));
 
 // Rate limiting
 const authLimiter = rateLimit({
@@ -215,9 +222,13 @@ app.use('/api/backups', apiLimiter, authMiddleware, tenantMiddleware, backupsRou
 app.use('/api/monitoring', apiLimiter, authMiddleware, tenantMiddleware, monitoringRoutes);
 app.use('/api/tenants', apiLimiter, authMiddleware, tenantMiddleware, tenantsRoutes);
 
-// Error handler with human-friendly messages
+// Error handler with human-friendly messages and safe logging
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err.message, err.stack);
+  const safeError = createSafeErrorLog(err, {
+    path: req.path,
+    method: req.method,
+  });
+  safeLog('error', 'Request error', safeError);
   
   const humanError = humanizeError(err);
   res.status(500).json({

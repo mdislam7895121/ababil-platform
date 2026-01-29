@@ -84,6 +84,56 @@ router.post('/', requireRole('owner', 'admin'), async (req: AuthRequest, res) =>
   }
 });
 
+// Rotate API key (revoke old, issue new)
+router.post('/:id/rotate', requireRole('owner', 'admin'), async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    const existingKey = await prisma.apiKey.findFirst({
+      where: { id, tenantId: req.tenantId }
+    });
+
+    if (!existingKey) {
+      return res.status(404).json({ error: 'API key not found' });
+    }
+
+    const { key: newRawKey, prefix: newPrefix } = generateApiKey();
+    const newKeyHash = hashApiKey(newRawKey);
+
+    await prisma.apiKey.update({
+      where: { id },
+      data: {
+        keyHash: newKeyHash,
+        keyPrefix: newPrefix,
+        lastUsedAt: null,
+      }
+    });
+
+    await logAudit({
+      tenantId: req.tenantId!,
+      actorUserId: req.userId,
+      action: 'API_KEY_ROTATED',
+      entityType: 'api_key',
+      entityId: id,
+      metadata: { oldPrefix: existingKey.keyPrefix, newPrefix }
+    });
+
+    res.json({
+      id: existingKey.id,
+      name: existingKey.name,
+      key: newRawKey,
+      keyPrefix: newPrefix,
+      scopes: existingKey.scopes,
+      expiresAt: existingKey.expiresAt,
+      rotatedAt: new Date().toISOString(),
+      message: 'API key rotated successfully. Save this key now - it will not be shown again.'
+    });
+  } catch (error) {
+    console.error('Rotate API key error:', error);
+    res.status(500).json({ error: 'Failed to rotate API key' });
+  }
+});
+
 // Revoke API key
 router.delete('/:id', requireRole('owner', 'admin'), async (req: AuthRequest, res) => {
   try {

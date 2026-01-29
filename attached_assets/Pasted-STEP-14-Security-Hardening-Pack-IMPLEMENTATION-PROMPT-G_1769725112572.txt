@@ -1,0 +1,109 @@
+STEP 14 (Security Hardening Pack) — IMPLEMENTATION PROMPT
+
+GOAL
+Harden the platform for production security without breaking existing flows.
+This is NOT a refactor. Additive, minimal diffs only.
+
+NON-NEGOTIABLE RULES
+1) Additive only. Do NOT refactor existing working code.
+2) Golden Flows F1–F4 must remain PASS (use ./scripts/verify.sh and smoke.sh).
+3) No breaking changes to auth/billing/preview.
+4) Proof-first: no “done” without raw outputs and evidence.
+
+WHAT TO BUILD
+
+A) Security Headers (API)
+1) Add Helmet (or equivalent) to Express API:
+   - Content-Security-Policy: keep conservative; if breaks Next.js or webview, disable CSP or set minimal policy
+   - X-Content-Type-Options: nosniff
+   - X-Frame-Options: SAMEORIGIN (or deny if safe)
+   - Referrer-Policy
+   - Permissions-Policy (basic)
+2) Add HSTS only when NODE_ENV=production (do not apply in local dev).
+
+B) CORS Hardening
+1) Replace permissive CORS with allowlist-based CORS:
+   - Allow: localhost:3000, localhost:5000, and the deployed app URL from env (APP_URL)
+   - Allow credentials only if required
+2) Provide env var:
+   - CORS_ALLOWED_ORIGINS="http://localhost:3000,https://<prod-domain>"
+3) Return clear error if origin not allowed.
+
+C) Auth & Token Safety
+1) Ensure JWT secret requirements:
+   - If missing/weak, fail fast in production (not dev)
+2) Ensure cookies (if used) are:
+   - HttpOnly, Secure in prod, SameSite=Lax/Strict (choose minimal break)
+3) Add request body size limit:
+   - e.g., 1mb default; allow higher only for export/download endpoints if needed
+
+D) Secrets & PII Redaction Enforcement
+1) Ensure logs never print:
+   - Authorization headers
+   - API keys
+   - encryption keys
+   - passwords
+2) Add a centralized redaction utility and apply to:
+   - error logging
+   - audit logging (store metadata, not secrets)
+3) Add tests or proof logs showing redaction.
+
+E) API Key Storage Hardening
+If API keys are stored:
+1) Ensure API keys are hashed at rest (e.g., SHA-256 with salt/pepper) OR confirm already hashed.
+2) Implement key rotation endpoint (admin/owner):
+   - POST /api/api-keys/:id/rotate
+   - Old key revoked, new key returned once
+3) Audit log: API_KEY_ROTATED
+
+F) Dependency & Baseline Security Check
+1) Add script:
+   - npm run security:check
+   Runs:
+   - npm audit --production (or equivalent) and outputs a baseline report
+2) Document the policy:
+   - Known low severity allowed
+   - High/Critical must be fixed or explicitly waived in docs
+
+G) Docs
+1) Create: reports/step14-proof.md
+Include:
+- headers config
+- cors allowlist config examples
+- redaction examples
+- API key hashing/rotation notes
+- security:check output snippet
+2) Update DEPLOY.md with new env vars:
+   - CORS_ALLOWED_ORIGINS
+   - APP_URL
+   - JOBS_ENABLED (already)
+   - any other security-related settings
+
+PROOF REQUIRED (MANDATORY)
+1) Raw curl header proof (API response headers visible):
+   curl -I http://localhost:5000/api/health
+   Must show key security headers (x-content-type-options, referrer-policy, etc.)
+
+2) CORS proof:
+   - Allowed origin request returns 200
+   - Disallowed origin request returns blocked (show response)
+
+3) Redaction proof:
+   - Trigger a controlled error and show logs do NOT include secrets/token
+
+4) API key rotation proof (if implemented):
+   - Rotate returns new key once
+   - Old key no longer works (401/403)
+   - AuditLog event recorded
+
+5) Regression proof:
+   - ./scripts/verify.sh PASS (warnings ok if pre-existing)
+   - ./scripts/smoke.sh PASS
+
+6) Artifacts:
+   - reports/step14-proof.md
+   - list changed files + git status
+
+STOP CONDITION
+Stop after STEP 14 proof is delivered.
+Do NOT start STEP 15.

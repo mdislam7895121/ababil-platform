@@ -34,6 +34,9 @@ Create these environment variables in your production environment:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `OPENAI_API_KEY` | OpenAI API key for AI features | Mock mode if not set |
+| `JOBS_ENABLED` | Enable background job scheduler | `true` |
+| `APP_URL` | Primary application URL (for CORS allowlist) | Auto-detected |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated CORS allowed origins | localhost only |
 
 ## Database Setup
 
@@ -299,7 +302,22 @@ Before going live, ensure:
 - [ ] `DATABASE_URL` uses SSL connection (`?sslmode=require`)
 - [ ] HTTPS is enabled (most hosting providers handle this)
 - [ ] Rate limiting is active (built-in)
-- [ ] No secrets in logs (built-in)
+- [ ] No secrets in logs (built-in redaction)
+- [ ] Security headers enabled (Helmet - automatic in production)
+- [ ] CORS allowlist configured via `CORS_ALLOWED_ORIGINS`
+- [ ] Run `./scripts/security-check.sh` to audit dependencies
+
+### Security Audit
+
+Run the security audit script before deployment:
+
+```bash
+./scripts/security-check.sh
+```
+
+This checks for known vulnerabilities in production dependencies. Policy:
+- **Critical/High**: Must be fixed or explicitly waived
+- **Moderate/Low**: Allowed if no fix available
 
 ## Scaling Considerations
 
