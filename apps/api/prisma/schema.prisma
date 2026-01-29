@@ -27,6 +27,8 @@ model Tenant {
   buildRuns        BuildRun[]
   deployConfigs    DeployConfig[]
   deployRuns       DeployRun[]
+  checklistItems   ChecklistItem[]
+  previewSessions  PreviewSession[]
 
   @@map("tenants")
 }
@@ -241,4 +243,47 @@ model DeployRun {
   deployConfig DeployConfig @relation(fields: [deployConfigId], references: [id], onDelete: Cascade)
 
   @@map("deploy_runs")
+}
+
+model ChecklistItem {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  key       String
+  label     String
+  completed Boolean  @default(false)
+  category  String   @default("required") // required|optional
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@map("checklist_items")
+}
+
+model PreviewSession {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  role      String   @default("admin") // admin|staff|customer
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("preview_sessions")
+}
+
+model IndustryPreset {
+  id          String   @id @default(uuid())
+  templateKey String   @map("template_key")
+  presetKey   String   @map("preset_key")
+  name        String
+  description String
+  configJson  Json     @map("config_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([templateKey, presetKey])
+  @@map("industry_presets")
 }

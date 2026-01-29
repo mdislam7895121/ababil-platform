@@ -12,6 +12,10 @@ import { aiRoutes } from './routes/ai.js';
 import { dashboardRoutes } from './routes/dashboard.js';
 import { builderRoutes } from './routes/builder.js';
 import { deployRoutes } from './routes/deploy.js';
+import { checklistRoutes } from './routes/checklist.js';
+import { previewRoutes } from './routes/preview.js';
+import { presetsRoutes } from './routes/presets.js';
+import { costsRoutes } from './routes/costs.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 
 export const prisma = new PrismaClient();
@@ -64,6 +68,10 @@ app.use('/api/ai', apiLimiter, authMiddleware, tenantMiddleware, aiRoutes);
 app.use('/api/dashboard', apiLimiter, authMiddleware, tenantMiddleware, dashboardRoutes);
 app.use('/api/builder', apiLimiter, authMiddleware, tenantMiddleware, builderRoutes);
 app.use('/api/deploy', apiLimiter, authMiddleware, tenantMiddleware, deployRoutes);
+app.use('/api/checklist', apiLimiter, authMiddleware, tenantMiddleware, checklistRoutes);
+app.use('/api/preview', apiLimiter, authMiddleware, tenantMiddleware, previewRoutes);
+app.use('/api/presets', apiLimiter, authMiddleware, tenantMiddleware, presetsRoutes);
+app.use('/api/costs', apiLimiter, authMiddleware, tenantMiddleware, costsRoutes);
 
 // Error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
