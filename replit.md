@@ -39,6 +39,13 @@ The platform is a full-stack TypeScript monorepo.
 - **White-Label + Reseller Mode**: Allows third-party resellers to brand the platform, manage customers, track commissions, and utilize custom domains. Branding is dynamically detected and applied via CSS variables.
 - **Background Jobs**: Automated tasks using `node-cron` for cleanup and maintenance (e.g., `cleanupPreviewSessions`, `cleanupI18nCache`). Jobs can be triggered manually.
 - **Rate Limiting + Abuse Guard**: Configurable rate limits on critical API endpoints, using IP, tenant+user, or token-based key strategies. Blocks are logged and return a `429 Too Many Requests` response with `Retry-After` header.
+- **Backups + Tenant Data Export + Safe Delete**: Complete data management system with:
+  - **Tenant Data Export**: ZIP file generation with all tenant data (users, memberships, modules, connectors, billing, audit logs). 24-hour expiry with automatic cleanup.
+  - **Backup Snapshots**: Manual and scheduled snapshots recording counts of all tenant data for record-keeping.
+  - **Safe Delete**: 2-step deletion process with confirmation token (30-min expiry). Soft delete with 30-day retention. API keys and preview sessions revoked on delete.
+  - **Restore**: Restore deleted workspaces within retention period.
+  - **Cleanup Job**: Runs every 4 hours to expire old exports and delete files.
+  - **UI**: `/dashboard/data` page for export, backup, delete, and restore operations.
 
 ## External Dependencies
 
