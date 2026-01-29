@@ -123,3 +123,42 @@ For the Expo mobile app, run `cd apps/mobile && npx expo start`.
 - **Location**: `apps/api/src/lib/errors.ts`
 - Error types: DATABASE_CONNECTION_FAILED, JWT_SECRET_MISSING, ENCRYPTION_KEY_INVALID, etc.
 - Each error includes actionable guidance for the user
+
+## Zero-Thinking Mode (Auto-Pilot UX) Features
+
+### Guided Setup
+- **API**: `/api/setup` - Track and verify setup progress
+- **Endpoints**: `GET /state`, `POST /step/:key/verify`, `POST /step/:key/complete`, `POST /verify-all`
+- **Steps tracked**: database, secrets, email, payments, ai, deploy_check
+- Shows progress percentage, blocking items, and ready-to-deploy status
+
+### Environment Auto-Generator
+- **API**: `/api/env/generate` - Generate secure random secrets
+- Creates SESSION_SECRET (64 chars hex) and ENCRYPTION_KEY (32 chars hex)
+- Returns one-time values with storage instructions
+
+### Health Monitor
+- **API**: `/api/health/status/summary` - Traffic light status
+- Status: green (healthy), yellow (warnings), red (critical/Safe Mode)
+- Returns issues with actionable guidance
+
+### Safe Mode
+- **Location**: `apps/api/src/lib/safeMode.ts`
+- Active when critical config missing (SESSION_SECRET, ENCRYPTION_KEY)
+- Blocks external actions (AI calls, emails, payments)
+- Enforced in AI route with 503 response
+
+### What's Missing Panel
+- **API**: `/api/health/status/missing` - Proactive suggestions
+- Shows unconfigured optional features with impact statements
+- Priority levels: high, medium, low
+
+### Pre-Flight Check
+- **API**: `/api/deploy/preflight` - Block bad deploys
+- Checks: database, JWT secret, encryption key, admin user
+- Returns canDeploy boolean and blocking issues list
+
+### Simple Analytics
+- **API**: `/api/analytics/summary` - Zero-setup metrics
+- Metrics: totalUsers, activeUsersToday, requestsToday, aiRequestsToday, aiTokensToday
+- Derived from existing audit logs and AI usage data
