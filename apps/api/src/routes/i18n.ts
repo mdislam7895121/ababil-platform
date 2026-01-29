@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { prisma } from '../index.js';
-import { AuthRequest, requireRole } from '../middleware/auth.js';
+import { AuthRequest, authMiddleware, tenantMiddleware, requireRole } from '../middleware/auth.js';
 import { isSafeModeActive } from '../lib/safeMode.js';
 import fs from 'fs';
 import path from 'path';
@@ -119,7 +119,7 @@ router.get('/:lang', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/generate', requireRole('owner', 'admin'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/generate', authMiddleware, tenantMiddleware, requireRole('owner', 'admin'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const userId = req.user?.id;
@@ -315,7 +315,7 @@ ${JSON.stringify(sourceTranslations, null, 2)}`;
   }
 });
 
-router.patch('/workspace/language', async (req: Request, res: Response) => {
+router.patch('/workspace/language', authMiddleware, tenantMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const { language, languages } = req.body;
@@ -359,7 +359,7 @@ router.patch('/workspace/language', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/workspace/language', async (req: Request, res: Response) => {
+router.get('/workspace/language', authMiddleware, tenantMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     
