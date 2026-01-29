@@ -1,0 +1,85 @@
+GOAL (STEP 2 ONLY)
+Implement Live Preview with Shareable Demo Links so users can view and share a demo of the built platform without going live.
+This must increase trust and reduce sales friction.
+
+SCOPE RULES
+1) Additive only. Do NOT refactor existing Preview, Builder, or Deploy logic.
+2) Reuse existing Preview infrastructure if present.
+3) Mobile-first UI. Must work cleanly on phone browsers.
+4) RBAC:
+   - owner/admin can create preview links
+   - staff/viewer can open preview links (read-only)
+5) Proof-first: Provide screenshots + API evidence.
+
+WHAT TO BUILD
+
+A) Preview Creation
+- Add a button in dashboard (Builder Result / Deploy page):
+  “Create Live Preview”
+- Creates a demo preview session with:
+  • Demo data only
+  • Read-only mode
+  • No email/SMS/payment processing
+  • Clear “DEMO / PREVIEW” watermark
+  • 24-hour expiry (configurable)
+
+B) Shareable Preview Link
+- Generate a public, tokenized URL:
+  /preview/{token}
+- Anyone with the link can open (no login)
+- Token must be time-limited and revocable
+- Show copy/share UI (copy button)
+
+C) Preview Viewer UI
+- Public preview page:
+  • Uses same UI shell as real app
+  • Top banner: “Preview Mode – expires in X hours”
+  • Disable any write actions (forms submit blocked)
+- If expired or revoked:
+  • Show friendly message + “Ask admin for new preview”
+
+D) Preview Management
+- New page or section:
+  /dashboard/previews
+- List previews:
+  • status (active/expired/revoked)
+  • expiry time
+  • revoke button
+- Audit log:
+  PREVIEW_CREATED, PREVIEW_REVOKED, PREVIEW_VIEWED
+
+BACKEND (ONLY IF NEEDED)
+If not already present:
+- POST /api/preview/create
+- GET /api/preview/{token}
+- POST /api/preview/revoke
+Security:
+- Tenant-scoped
+- No secrets exposed
+- Strict read-only enforcement
+
+UX REQUIREMENTS
+- Clear demo watermark
+- Countdown to expiry
+- Share button
+- Human-friendly errors
+
+PROOF REQUIREMENTS (MANDATORY)
+Provide:
+1) Screenshot (mobile width):
+   - Preview creation button and confirmation
+2) Screenshot:
+   - Public preview page (/preview/{token}) showing DEMO banner
+3) Screenshot:
+   - Preview management list with status
+4) Evidence of API calls:
+   - preview/create
+   - preview/{token}
+5) proof.md update:
+   - routes/pages added
+   - preview security rules
+   - expiry + revocation behavior
+
+STOP CONDITION
+Stop after STEP 2 is complete and proven.
+Do NOT start STEP 3 (Paid Gate / Pricing).

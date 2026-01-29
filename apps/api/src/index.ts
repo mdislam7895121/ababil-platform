@@ -49,7 +49,7 @@ import { dashboardRoutes } from './routes/dashboard.js';
 import { builderRoutes } from './routes/builder.js';
 import { deployRoutes } from './routes/deploy.js';
 import { checklistRoutes } from './routes/checklist.js';
-import { previewRoutes } from './routes/preview.js';
+import { previewRoutes, previewPublicRoutes } from './routes/preview.js';
 import { presetsRoutes } from './routes/presets.js';
 import { costsRoutes } from './routes/costs.js';
 import { setupRoutes } from './routes/setup.js';
@@ -100,6 +100,9 @@ app.get('/api/ready', async (req, res) => {
 
 // Auth routes (public)
 app.use('/api/auth', authLimiter, authRoutes);
+
+// Public preview routes (no auth required for viewing previews)
+app.use('/api/preview', apiLimiter, previewPublicRoutes);
 
 // Protected routes
 app.use('/api/users', apiLimiter, authMiddleware, tenantMiddleware, userRoutes);

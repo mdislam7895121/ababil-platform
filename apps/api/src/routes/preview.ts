@@ -6,6 +6,7 @@ import { logAudit } from '../lib/audit.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
 
 const router = Router();
+const publicRouter = Router();
 
 const PREVIEW_ROLES = ['admin', 'staff', 'customer'] as const;
 
@@ -44,7 +45,7 @@ router.post('/create', requireRole('owner', 'admin'), async (req: AuthRequest, r
 
     res.json({
       ok: true,
-      previewUrl: `/preview?token=${token}`,
+      previewUrl: `/preview/${token}`,
       token,
       role,
       expiresAt: expiresAt.toISOString()
@@ -55,7 +56,7 @@ router.post('/create', requireRole('owner', 'admin'), async (req: AuthRequest, r
   }
 });
 
-router.get('/validate', async (req, res) => {
+publicRouter.get('/validate', async (req, res) => {
   try {
     const token = req.query.token as string;
     if (!token) {
@@ -68,12 +69,29 @@ router.get('/validate', async (req, res) => {
     });
 
     if (!session) {
-      return res.status(404).json({ error: 'Preview session not found' });
+      return res.status(404).json({ error: 'Preview session not found', code: 'NOT_FOUND' });
+    }
+
+    if (session.revoked) {
+      return res.status(410).json({ error: 'Preview session has been revoked', code: 'REVOKED' });
     }
 
     if (new Date() > session.expiresAt) {
-      return res.status(410).json({ error: 'Preview session expired' });
+      return res.status(410).json({ error: 'Preview session expired', code: 'EXPIRED' });
     }
+
+    await logAudit({
+      tenantId: session.tenantId,
+      actorUserId: null,
+      action: 'PREVIEW_VIEWED',
+      entityType: 'preview_session',
+      entityId: session.id,
+      metadata: { role: session.role }
+    });
+
+    const now = new Date();
+    const expiresAt = new Date(session.expiresAt);
+    const hoursRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60)));
 
     res.json({
       valid: true,
@@ -81,6 +99,7 @@ router.get('/validate', async (req, res) => {
       tenantId: session.tenantId,
       tenantName: session.tenant.name,
       expiresAt: session.expiresAt.toISOString(),
+      hoursRemaining,
       isDemo: true,
       restrictions: {
         canSendEmails: false,
@@ -100,24 +119,80 @@ router.get('/sessions', requireRole('owner', 'admin'), async (req: AuthRequest, 
     const sessions = await prisma.previewSession.findMany({
       where: { tenantId: req.tenantId! },
       orderBy: { createdAt: 'desc' },
-      take: 10,
+      take: 20,
       select: {
         id: true,
+        token: true,
         role: true,
         expiresAt: true,
+        revoked: true,
+        revokedAt: true,
         createdAt: true
       }
     });
 
-    const activeSessions = sessions.filter(s => new Date() < s.expiresAt);
+    const now = new Date();
+    const sessionsWithStatus = sessions.map(s => {
+      let status: 'active' | 'expired' | 'revoked' = 'active';
+      if (s.revoked) {
+        status = 'revoked';
+      } else if (now > s.expiresAt) {
+        status = 'expired';
+      }
+      const hoursRemaining = status === 'active' 
+        ? Math.max(0, Math.ceil((s.expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60)))
+        : 0;
+      return {
+        ...s,
+        status,
+        hoursRemaining,
+        previewUrl: `/preview/${s.token}`
+      };
+    });
 
     res.json({
-      sessions: activeSessions,
-      total: activeSessions.length
+      sessions: sessionsWithStatus,
+      total: sessionsWithStatus.length,
+      active: sessionsWithStatus.filter(s => s.status === 'active').length
     });
   } catch (error) {
     console.error('List preview sessions error:', error);
     res.status(500).json({ error: 'Failed to list preview sessions' });
+  }
+});
+
+router.post('/revoke/:id', requireRole('owner', 'admin'), async (req: AuthRequest, res) => {
+  try {
+    const session = await prisma.previewSession.findFirst({
+      where: { id: req.params.id, tenantId: req.tenantId! }
+    });
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    if (session.revoked) {
+      return res.status(400).json({ error: 'Session already revoked' });
+    }
+
+    await prisma.previewSession.update({
+      where: { id: session.id },
+      data: { revoked: true, revokedAt: new Date() }
+    });
+
+    await logAudit({
+      tenantId: req.tenantId!,
+      actorUserId: req.userId,
+      action: 'PREVIEW_REVOKED',
+      entityType: 'preview_session',
+      entityId: session.id,
+      metadata: { role: session.role }
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Revoke preview session error:', error);
+    res.status(500).json({ error: 'Failed to revoke preview session' });
   }
 });
 
@@ -140,7 +215,7 @@ router.delete('/sessions/:id', requireRole('owner', 'admin'), async (req: AuthRe
   }
 });
 
-router.get('/demo-data', async (req, res) => {
+publicRouter.get('/demo-data', async (req, res) => {
   try {
     const token = req.query.token as string;
     if (!token) {
@@ -148,7 +223,7 @@ router.get('/demo-data', async (req, res) => {
     }
 
     const session = await prisma.previewSession.findUnique({ where: { token } });
-    if (!session || new Date() > session.expiresAt) {
+    if (!session || session.revoked || new Date() > session.expiresAt) {
       return res.status(401).json({ error: 'Invalid or expired session' });
     }
 
@@ -179,4 +254,4 @@ router.get('/demo-data', async (req, res) => {
   }
 });
 
-export { router as previewRoutes };
+export { router as previewRoutes, publicRouter as previewPublicRoutes };
