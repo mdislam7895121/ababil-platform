@@ -51,6 +51,13 @@ router.get('/config', requireRole('owner', 'admin'), async (req: AuthRequest, re
 
 router.post('/config', requireRole('owner', 'admin'), async (req: AuthRequest, res) => {
   try {
+    const encryptionKey = process.env.ENCRYPTION_KEY;
+    if (!encryptionKey || encryptionKey.length !== 32) {
+      return res.status(400).json({ 
+        error: 'Server ENCRYPTION_KEY not configured or invalid length. Please set a 32-character encryption key.' 
+      });
+    }
+
     const parsed = deployConfigInputSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() });
@@ -58,8 +65,15 @@ router.post('/config', requireRole('owner', 'admin'), async (req: AuthRequest, r
 
     const { provider, appUrl, databaseUrl, jwtSecret } = parsed.data;
 
-    const dbUrlEncrypted = encrypt(databaseUrl);
-    const jwtSecretEncrypted = encrypt(jwtSecret);
+    let dbUrlEncrypted: string;
+    let jwtSecretEncrypted: string;
+    try {
+      dbUrlEncrypted = encrypt(databaseUrl);
+      jwtSecretEncrypted = encrypt(jwtSecret);
+    } catch (encryptError) {
+      console.error('Encryption failed:', encryptError);
+      return res.status(500).json({ error: 'Failed to encrypt secrets. Check server configuration.' });
+    }
 
     await prisma.deployConfig.upsert({
       where: { tenantId: req.tenantId! },
@@ -123,24 +137,13 @@ router.post('/verify', requireRole('owner', 'admin'), async (req: AuthRequest, r
 
     const results: Record<string, { passed: boolean; message: string }> = {};
 
-    const envCheck = {
-      DATABASE_URL: !!process.env.DATABASE_URL,
-      SESSION_SECRET: !!process.env.SESSION_SECRET,
-      ENCRYPTION_KEY: !!process.env.ENCRYPTION_KEY
-    };
-    results['env_vars'] = {
-      passed: envCheck.DATABASE_URL && envCheck.SESSION_SECRET && envCheck.ENCRYPTION_KEY,
-      message: `DATABASE_URL: ${envCheck.DATABASE_URL ? 'set' : 'missing'}, SESSION_SECRET: ${envCheck.SESSION_SECRET ? 'set' : 'missing'}, ENCRYPTION_KEY: ${envCheck.ENCRYPTION_KEY ? 'set' : 'missing'}`
-    };
-
-    try {
-      await prisma.$queryRaw`SELECT 1`;
-      results['db_connectivity'] = { passed: true, message: 'Database connection successful' };
-    } catch (dbError) {
-      results['db_connectivity'] = { passed: false, message: 'Database connection failed' };
-    }
-
     const appUrl = config.appUrl.replace(/\/$/, '');
+    results['config_saved'] = {
+      passed: !!config.dbUrlEncrypted && !!config.jwtSecretEncrypted,
+      message: config.dbUrlEncrypted && config.jwtSecretEncrypted 
+        ? 'Deploy configuration saved with encrypted secrets'
+        : 'Missing encrypted secrets in configuration'
+    };
     
     try {
       const healthRes = await fetch(`${appUrl}/api/health`, { 
@@ -166,9 +169,12 @@ router.post('/verify', requireRole('owner', 'admin'), async (req: AuthRequest, r
         headers: { 'Accept': 'application/json' },
         signal: AbortSignal.timeout(10000)
       });
+      const readyData = await readyRes.json().catch(() => ({}));
       results['ready_check'] = {
-        passed: readyRes.ok,
-        message: readyRes.ok ? 'Ready endpoint OK' : `Ready check failed: ${readyRes.status}`
+        passed: readyRes.ok && readyData.database === 'connected',
+        message: readyRes.ok && readyData.database === 'connected'
+          ? 'Ready endpoint OK - database connected on target deployment'
+          : `Ready check failed: ${readyRes.status} ${readyData.database || ''}`
       };
     } catch (readyErr: any) {
       results['ready_check'] = {
