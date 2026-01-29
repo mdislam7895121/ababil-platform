@@ -10,6 +10,7 @@ import { apiKeyRoutes } from './routes/api-keys.js';
 import { auditRoutes } from './routes/audit.js';
 import { aiRoutes } from './routes/ai.js';
 import { dashboardRoutes } from './routes/dashboard.js';
+import { builderRoutes } from './routes/builder.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 
 export const prisma = new PrismaClient();
@@ -50,6 +51,7 @@ app.use('/api/api-keys', apiLimiter, authMiddleware, tenantMiddleware, apiKeyRou
 app.use('/api/audit-logs', apiLimiter, authMiddleware, tenantMiddleware, auditRoutes);
 app.use('/api/ai', apiLimiter, authMiddleware, tenantMiddleware, aiRoutes);
 app.use('/api/dashboard', apiLimiter, authMiddleware, tenantMiddleware, dashboardRoutes);
+app.use('/api/builder', apiLimiter, authMiddleware, tenantMiddleware, builderRoutes);
 
 // Error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

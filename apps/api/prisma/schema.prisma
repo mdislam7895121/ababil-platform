@@ -22,6 +22,9 @@ model Tenant {
   auditLogs        AuditLog[]
   aiUsage          AiUsage[]
   aiCache          AiCache[]
+  builderRequests  BuilderRequest[]
+  blueprints       Blueprint[]
+  buildRuns        BuildRun[]
 
   @@map("tenants")
 }
@@ -36,9 +39,10 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  memberships Membership[]
-  auditLogs   AuditLog[]
-  aiUsage     AiUsage[]
+  memberships     Membership[]
+  auditLogs       AuditLog[]
+  aiUsage         AiUsage[]
+  builderRequests BuilderRequest[]
 
   @@map("users")
 }
@@ -149,4 +153,54 @@ model AiCache {
 
   @@unique([tenantId, promptHash])
   @@map("ai_cache")
+}
+
+model BuilderRequest {
+  id                   String    @id @default(uuid())
+  tenantId             String    @map("tenant_id")
+  userId               String    @map("user_id")
+  promptText           String    @map("prompt_text")
+  normalizedPromptHash String    @map("normalized_prompt_hash")
+  status               String    @default("draft") // draft|approved|building|done|failed
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blueprints Blueprint[]
+  buildRuns  BuildRun[]
+
+  @@map("builder_requests")
+}
+
+model Blueprint {
+  id               String   @id @default(uuid())
+  tenantId         String   @map("tenant_id")
+  builderRequestId String   @map("builder_request_id")
+  templateKey      String   @map("template_key")
+  blueprintJson    Json     @map("blueprint_json")
+  summary          String
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  builderRequest BuilderRequest @relation(fields: [builderRequestId], references: [id], onDelete: Cascade)
+
+  @@map("blueprints")
+}
+
+model BuildRun {
+  id               String    @id @default(uuid())
+  tenantId         String    @map("tenant_id")
+  builderRequestId String    @map("builder_request_id")
+  status           String    @default("pending") // pending|running|done|failed
+  startedAt        DateTime? @map("started_at")
+  finishedAt       DateTime? @map("finished_at")
+  outputJson       Json?     @map("output_json")
+  errorText        String?   @map("error_text")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  builderRequest BuilderRequest @relation(fields: [builderRequestId], references: [id], onDelete: Cascade)
+
+  @@map("build_runs")
 }
