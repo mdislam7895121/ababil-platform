@@ -57,6 +57,7 @@ import { envRoutes } from './routes/env.js';
 import { healthRoutes } from './routes/health.js';
 import { preflightRoutes } from './routes/preflight.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { onboardingRoutes } from './routes/onboarding.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 
@@ -119,6 +120,7 @@ app.use('/api/env', apiLimiter, authMiddleware, tenantMiddleware, envRoutes);
 app.use('/api/health/status', apiLimiter, authMiddleware, tenantMiddleware, healthRoutes);
 app.use('/api/deploy/preflight', apiLimiter, authMiddleware, tenantMiddleware, preflightRoutes);
 app.use('/api/analytics', apiLimiter, authMiddleware, tenantMiddleware, analyticsRoutes);
+app.use('/api/onboarding', apiLimiter, authMiddleware, tenantMiddleware, onboardingRoutes);
 
 // Error handler with human-friendly messages
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

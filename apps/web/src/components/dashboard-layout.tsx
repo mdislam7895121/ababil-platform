@@ -29,11 +29,13 @@ import {
   DollarSign,
   AlertTriangle,
   Activity,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/onboarding", label: "Create with Questions", icon: MessageCircleQuestion, highlight: true },
   { href: "/dashboard/builder", label: "Builder", icon: Wand2 },
   { href: "/dashboard/checklist", label: "Go Live Checklist", icon: CheckCircle },
   { href: "/dashboard/preview", label: "Preview", icon: Eye },
@@ -122,6 +124,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           <nav className="flex-1 space-y-1 p-4">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
+              const isHighlight = 'highlight' in item && item.highlight;
               return (
                 <Link
                   key={item.href}
@@ -130,6 +133,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                     isActive
                       ? "bg-sidebar-accent text-sidebar-foreground"
+                      : isHighlight
+                      ? "bg-primary/10 text-primary border border-primary/30 font-medium"
                       : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   )}
                   data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
