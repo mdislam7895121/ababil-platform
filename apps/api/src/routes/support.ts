@@ -105,7 +105,7 @@ router.post('/tickets', requireRole('owner', 'admin', 'staff', 'viewer'), async 
     await prisma.auditLog.create({
       data: {
         tenantId: req.tenantId!,
-        userId: req.user!.id,
+        actorUserId: req.user!.id,
         action: 'SUPPORT_TICKET_CREATED',
         entityType: 'support_ticket',
         entityId: ticket.id,
@@ -204,7 +204,7 @@ router.post('/tickets/:id/messages', requireRole('owner', 'admin', 'staff', 'vie
     }
 
     const membership = await prisma.membership.findFirst({
-      where: { userId: req.user!.id, tenantId: req.tenantId! }
+      where: { actorUserId: req.user!.id, tenantId: req.tenantId! }
     });
 
     const authorRole = ['owner', 'admin'].includes(membership?.role || '') ? 'admin' : 
@@ -228,7 +228,7 @@ router.post('/tickets/:id/messages', requireRole('owner', 'admin', 'staff', 'vie
     await prisma.auditLog.create({
       data: {
         tenantId: req.tenantId!,
-        userId: req.user!.id,
+        actorUserId: req.user!.id,
         action: 'SUPPORT_MESSAGE_ADDED',
         entityType: 'support_message',
         entityId: message.id,
@@ -276,7 +276,7 @@ router.post('/tickets/:id/status', requireRole('owner', 'admin'), async (req: Au
     await prisma.auditLog.create({
       data: {
         tenantId: req.tenantId!,
-        userId: req.user!.id,
+        actorUserId: req.user!.id,
         action: 'SUPPORT_STATUS_CHANGED',
         entityType: 'support_ticket',
         entityId: ticket.id,
@@ -318,7 +318,7 @@ router.post('/tickets/:id/priority', requireRole('owner', 'admin'), async (req: 
     await prisma.auditLog.create({
       data: {
         tenantId: req.tenantId!,
-        userId: req.user!.id,
+        actorUserId: req.user!.id,
         action: 'SUPPORT_PRIORITY_CHANGED',
         entityType: 'support_ticket',
         entityId: ticket.id,
@@ -367,7 +367,7 @@ router.post('/tickets/:id/link-incident', requireRole('owner', 'admin'), async (
     await prisma.auditLog.create({
       data: {
         tenantId: req.tenantId!,
-        userId: req.user!.id,
+        actorUserId: req.user!.id,
         action: 'SUPPORT_INCIDENT_LINKED',
         entityType: 'support_ticket',
         entityId: ticket.id,
