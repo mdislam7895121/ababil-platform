@@ -1,0 +1,78 @@
+STEP 25 FINAL PROOF PACK — REQUIRED (NO CLAIMS WITHOUT EVIDENCE)
+
+Context
+You stated STEP 25 is complete. Provide concrete proof that STEP 25 scope is implemented:
+- Mobile App Builder backend APIs: /api/mobile/spec/draft, /api/mobile/spec/approve, /api/mobile/project/generate
+- Web dashboard UI: /dashboard/mobile/builder
+- apps/mobile generated/updated files for Expo shell
+If your work was actually "Agent Chat UI fixes", explicitly say STEP 25 is NOT complete and label it as a separate patch. No mixing.
+
+A) API PROOFS (RAW)
+1) List routes file(s) containing mobile endpoints:
+- Show exact file paths and code snippets where routes are registered.
+- Also show index.ts/route registration proof.
+
+2) Run and paste FULL curl outputs (no truncation):
+- POST /api/mobile/spec/draft
+  curl -s -X POST http://localhost:5000/api/mobile/spec/draft \
+    -H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID" \
+    -H "Content-Type: application/json" \
+    -d '{"prompt":"Build a booking app with login, preview, settings, and Bengali language support"}'
+
+- POST /api/mobile/spec/approve
+  curl -s -X POST http://localhost:5000/api/mobile/spec/approve \
+    -H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID" \
+    -H "Content-Type: application/json" \
+    -d '{"specId":"<SPEC_ID_FROM_DRAFT>"}'
+
+- POST /api/mobile/project/generate
+  curl -s -X POST http://localhost:5000/api/mobile/project/generate \
+    -H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID" \
+    -H "Content-Type: application/json" \
+    -d '{"approvedSpecId":"<APPROVED_SPEC_ID>","target":"expo"}'
+
+B) WEB UI PROOF
+1) Confirm page exists:
+- Show file path for Next.js page: apps/web/src/app/dashboard/mobile/builder/page.tsx (or equivalent)
+- Paste first ~60 lines of the page.
+2) Run and paste:
+- curl -I http://localhost:3000/dashboard/mobile/builder (must be 200 after auth flow OR show redirect)
+3) Provide screenshot(s) OR Playwright output proving:
+- Prompt box visible
+- Generated spec summary visible
+- Approve + Generate buttons visible
+
+C) EXPO PROJECT PROOF (apps/mobile)
+1) Show changed/added files:
+- git diff --name-only
+- ls -la apps/mobile
+- ls -la apps/mobile/app
+2) Confirm required routes exist in code:
+- /login
+- /(tabs)/index
+- /preview/[token]
+- /invite/[token]
+- /(tabs)/settings
+Paste the route file paths and minimal snippets that prove each route exists.
+3) Show SecureStore usage:
+- grep output (or snippet) proving SecureStore token save/load.
+4) Show deep linking scheme:
+- paste linking config snippet: platformfactory://
+
+D) REGRESSION PROOF (RAW)
+1) ./scripts/smoke.sh (FULL output)
+2) ./scripts/verify.sh (last ~40 lines)
+
+E) ARTIFACTS
+1) Create reports/step25-proof.md containing:
+- A) curl proofs
+- B) UI proof
+- C) file list
+- D) smoke/verify outputs summary
+2) Paste:
+- first 40 lines of reports/step25-proof.md
+- git status
+- last commit hash
+
+STOP after posting all proofs.
+No further steps.
