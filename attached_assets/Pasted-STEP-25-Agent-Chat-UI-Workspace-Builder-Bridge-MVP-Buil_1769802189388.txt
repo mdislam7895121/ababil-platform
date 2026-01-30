@@ -1,0 +1,60 @@
+STEP 25: Agent Chat UI + Workspace Builder Bridge (MVP) — Build Now
+
+Goal
+Create a customer-facing “Agent” chat screen in the web dashboard that turns natural language prompts into a working platform preview using the existing Builder + Success + Preview + Marketplace systems.
+
+Hard Rules
+- Non-breaking changes only. Do not refactor existing working flows.
+- Proof-first: do not claim done without raw evidence outputs.
+- Use existing backend endpoints already built (builder, onboarding, preview, success, marketplace, billing).
+- Keep all existing RBAC rules intact.
+
+Scope
+1) Web UI: /dashboard/agent
+   - A chat UI with:
+     - Prompt input
+     - Conversation history (local state ok)
+     - “Generate Draft” action
+     - Draft summary panel (template + modules + connectors + costs)
+     - Buttons: Approve & Build, Create Preview Link, Open Preview, Open Success Center
+
+2) Backend integration (no new complex logic)
+   - On submit prompt:
+     - Call POST /api/builder/draft with { prompt }
+     - Display returned blueprint summary
+   - On “Approve & Build”:
+     - POST /api/builder/approve (use draftId)
+     - POST /api/builder/run (use approvedId/workspaceId)
+   - On “Create Preview Link”:
+     - POST /api/preview/create
+     - Show /preview/<token> link
+   - Show “Next Best Action”:
+     - GET /api/success/next-steps and render top 3
+
+3) Safety + UX
+   - If API returns 401/403 show clear login/permission message
+   - If returns 402 show billing CTA to /dashboard/billing
+   - If returns 429 show retry-after message
+   - Always show tenant context requirement errors (x-tenant-id missing)
+
+Definition of Done (must provide proof)
+A) Raw curl proofs (paste outputs)
+- GET /api/health (200)
+- GET /api/ready (200)
+- POST /api/builder/draft (200)
+- POST /api/builder/approve (200)
+- POST /api/builder/run (200)
+- POST /api/preview/create (200)
+- GET /api/success/next-steps (200)
+
+B) UI proof
+- Screenshot: /dashboard/agent loaded
+- Screenshot: draft summary visible after prompt
+- Screenshot: preview link shown and opens /preview/<token>
+- Screenshot: success next steps visible in agent screen
+
+C) Regression
+- ./scripts/smoke.sh full output PASS
+- ./scripts/verify.sh last ~40 lines (warnings allowed only if already pre-existing)
+
+Stop after STEP 25 proof pack saved to: reports/step25-proof.md
