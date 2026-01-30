@@ -1,0 +1,149 @@
+You are working on an existing production-grade platform called
+“Digital Platform Factory”.
+
+CONTEXT (DO NOT CHANGE):
+- Backend: Express + Prisma (PostgreSQL)
+- Frontend: Next.js (apps/web)
+- Mobile exists but NOT part of this step
+- Monitoring, Deploy Wizard, Support, Billing, Preview, Go-Live already exist
+- Proof-first rule is mandatory (logs, curl, screenshots, DB evidence)
+- Non-breaking changes only
+- This step is STEP 19 and must NOT modify previous steps
+
+GOAL:
+Implement STEP 19 — Customer Success + Zero-Failure Launch Playbook.
+
+The objective is:
+Customers must NEVER feel lost, stuck, or unsure what to do next.
+The system must guide them clearly from signup → live → success.
+
+==================================================
+SCOPE — WHAT TO BUILD (ALL REQUIRED)
+==================================================
+
+### 19.1 “30-Minute Success Path”
+Create a backend-driven success state engine.
+
+Backend:
+- New endpoint:
+  GET /api/success/path
+- Response must include:
+  - currentStage (onboarding | preview | payment | deploy | live)
+  - completionPercent (0–100)
+  - blockingIssues[] (human-readable)
+  - nextBestAction { title, description, actionType, route }
+
+Frontend:
+- New panel component:
+  SuccessPathPanel
+- Display:
+  - Progress bar
+  - “You are here”
+  - Clear next step CTA button
+
+==================================================
+
+### 19.2 Contextual Help System (Screen-Aware Help)
+Backend:
+- New endpoint:
+  GET /api/help/context?screen=deploy|preview|billing|dashboard
+- Returns:
+  - title
+  - explanation (plain human language)
+  - commonMistakes[]
+  - tips[]
+
+Frontend:
+- Show contextual help card ONLY for current screen
+- No generic FAQ
+- Help must change based on screen
+
+==================================================
+
+### 19.3 Failure-to-Recovery Map
+Backend:
+- New endpoint:
+  GET /api/recovery/status
+- Detect:
+  - failed verification
+  - deploy errors
+  - unhealthy monitoring state
+- Return:
+  - issueType
+  - severity
+  - whyThisHappened
+  - estimatedFixTime
+  - recoverySteps[]
+
+Frontend:
+- “Fix Now” panel with:
+  - Auto-fix button if possible
+  - Guided fix steps if manual
+
+==================================================
+
+### 19.4 “What Happens Next?” Engine
+Backend:
+- New endpoint:
+  GET /api/next-steps
+- Based on last completed action:
+  - onboarding_done
+  - preview_created
+  - payment_completed
+  - go_live_completed
+- Return:
+  - nextSteps[] with title + reason
+
+Frontend:
+- Always show after major actions
+- Never leave user at a dead end
+
+==================================================
+
+### 19.5 Success-Aware Support Routing
+Backend:
+- When creating a support ticket:
+  - Auto-attach:
+    - tenant stage
+    - success path percent
+    - last error / blocker
+- No extra input required from user
+
+Frontend:
+- Show “We already know your context” message
+- Reduce typing for user
+
+==================================================
+SECURITY & RULES
+==================================================
+- RBAC enforced (owner/admin)
+- No sensitive data exposed
+- Full audit logs for:
+  SUCCESS_PATH_VIEWED
+  RECOVERY_TRIGGERED
+  NEXT_STEP_SHOWN
+
+==================================================
+PROOF REQUIREMENTS (MANDATORY)
+==================================================
+You MUST provide:
+
+1. curl outputs for all new endpoints
+2. Screenshot(s) of:
+   - Success Path panel
+   - Contextual Help on at least 2 screens
+3. Database proof (if new tables added)
+4. smoke.sh → PASS
+5. verify.sh → PASS (warnings allowed if pre-existing)
+6. Create:
+   reports/step19-proof.md
+   with raw evidence
+
+==================================================
+STOP CONDITION
+==================================================
+- Do NOT start STEP 20
+- Stop after STEP 19 proof is complete
+- Wait for user confirmation
+
+BEGIN STEP 19 IMPLEMENTATION.

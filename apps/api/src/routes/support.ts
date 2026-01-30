@@ -65,6 +65,44 @@ const linkIncidentSchema = z.object({
   incidentId: z.string().uuid()
 });
 
+async function getSuccessContext(tenantId: string) {
+  try {
+    const [
+      builderRequest,
+      previewSession,
+      subscription,
+      deployConfig,
+      lastVerification,
+      lastIncident
+    ] = await Promise.all([
+      prisma.builderRequest.findFirst({ where: { tenantId }, orderBy: { createdAt: 'desc' } }),
+      prisma.previewSession.findFirst({ where: { tenantId, status: 'active' } }),
+      prisma.subscription.findFirst({ where: { tenantId } }),
+      prisma.deployConfig.findUnique({ where: { tenantId } }),
+      prisma.deployVerificationRun.findFirst({ where: { tenantId }, orderBy: { createdAt: 'desc' } }),
+      prisma.incident.findFirst({ where: { tenantId }, orderBy: { createdAt: 'desc' } })
+    ]);
+
+    let stage = 'onboarding';
+    let percent = 0;
+    if (builderRequest) { stage = 'preview'; percent = 20; }
+    if (previewSession) { stage = 'payment'; percent = 40; }
+    if (subscription?.status === 'active') { stage = 'deploy'; percent = 60; }
+    if (deployConfig?.status === 'deployed') { stage = 'live'; percent = 80; }
+    if (lastVerification?.status === 'pass') { percent = 100; }
+
+    return {
+      tenantStage: stage,
+      successPercent: percent,
+      lastError: lastIncident ? { type: lastIncident.type, title: lastIncident.title } : null,
+      lastVerification: lastVerification ? { status: lastVerification.status } : null,
+      deployStatus: deployConfig?.status || 'not_configured'
+    };
+  } catch {
+    return null;
+  }
+}
+
 router.post('/tickets', requireRole('owner', 'admin', 'staff', 'viewer'), async (req: AuthRequest, res: Response) => {
   try {
     if (!checkTicketRateLimit(req.tenantId!)) {
@@ -81,6 +119,8 @@ router.post('/tickets', requireRole('owner', 'admin', 'staff', 'viewer'), async 
 
     const { subject, message, category, priority } = parsed.data;
 
+    const successContext = await getSuccessContext(req.tenantId!);
+
     const ticket = await prisma.supportTicket.create({
       data: {
         tenantId: req.tenantId!,
@@ -88,7 +128,8 @@ router.post('/tickets', requireRole('owner', 'admin', 'staff', 'viewer'), async 
         subject: redactSecrets(subject),
         category,
         priority,
-        status: 'open'
+        status: 'open',
+        metadata: successContext ? { successContext } : undefined
       }
     });
 
@@ -109,13 +150,17 @@ router.post('/tickets', requireRole('owner', 'admin', 'staff', 'viewer'), async 
         action: 'SUPPORT_TICKET_CREATED',
         entityType: 'support_ticket',
         entityId: ticket.id,
-        metadata: { category, priority }
+        metadata: { category, priority, successContext }
       }
     });
 
     res.status(201).json({ 
       ticket,
-      message: 'Ticket created successfully'
+      successContext,
+      contextAttached: !!successContext,
+      message: successContext 
+        ? 'Ticket created - we already know your context' 
+        : 'Ticket created successfully'
     });
   } catch (error) {
     console.error('Create ticket error:', error);
