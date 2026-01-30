@@ -44,6 +44,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/onboarding", label: "Create with Questions", icon: MessageCircleQuestion, highlight: true },
   { href: "/dashboard/builder", label: "Builder", icon: Wand2 },
+  { href: "/dashboard/mobile/builder", label: "Mobile Builder", icon: Rocket, roles: ["owner", "admin"] },
   { href: "/dashboard/checklist", label: "Go Live Checklist", icon: CheckCircle },
   { href: "/dashboard/preview", label: "Preview", icon: Eye },
   { href: "/dashboard/costs", label: "Cost Estimate", icon: DollarSign },
