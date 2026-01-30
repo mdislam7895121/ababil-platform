@@ -1,0 +1,111 @@
+STEP 29 — PROOF COLLECTION (MUST, RAW)
+
+GOAL:
+Provide concrete raw outputs proving Step 29 is реально working (not just described).
+If any path is simulated, it must be explicitly labeled and show why simulation was used.
+
+0) Repo state
+- git status
+- git rev-parse HEAD
+- git diff --stat HEAD
+- list changed files relevant to step29
+
+1) Runner enabled proof
+- Show env/config lines proving MOBILE_PUBLISH_RUNNER_ENABLED=true (or equivalent)
+- Show server startup logs indicating runner started (1 screenshot or log excerpt)
+
+2) Health / Ready (raw)
+curl -s http://localhost:5000/api/health
+curl -s http://localhost:5000/api/ready
+
+3) RBAC proofs (raw)
+A) No auth:
+curl -i http://localhost:5000/api/mobile/publish/jobs
+
+B) Staff token (or non-admin) should be 403:
+curl -i http://localhost:5000/api/mobile/publish/jobs \
+-H "Authorization: Bearer <STAFF_TOKEN>" \
+-H "x-tenant-id: <TENANT_ID>"
+
+C) Admin works (200):
+curl -i http://localhost:5000/api/mobile/publish/jobs \
+-H "Authorization: Bearer <ADMIN_TOKEN>" \
+-H "x-tenant-id: <TENANT_ID>"
+
+4) Create a publish job (EXPO) and prove async execution
+A) Start publish job:
+curl -s -X POST http://localhost:5000/api/mobile/publish/start \
+-H "Authorization: Bearer <ADMIN_TOKEN>" \
+-H "x-tenant-id: <TENANT_ID>" \
+-H "Content-Type: application/json" \
+-d '{"target":"expo","stage":"build","channel":"preview","specId":"<APPROVED_SPEC_ID>"}'
+
+Capture JOB_ID.
+
+B) Poll job details until status changes queued -> running -> completed/failed:
+curl -s http://localhost:5000/api/mobile/publish/jobs/<JOB_ID> \
+-H "Authorization: Bearer <ADMIN_TOKEN>" \
+-H "x-tenant-id: <TENANT_ID>"
+
+Paste full JSON for each transition.
+
+C) Logs endpoint (raw):
+curl -s http://localhost:5000/api/mobile/publish/jobs/<JOB_ID>/logs \
+-H "Authorization: Bearer <ADMIN_TOKEN>" \
+-H "x-tenant-id: <TENANT_ID>"
+
+MUST show:
+- provider chosen
+- whether EAS CLI executed OR simulation triggered
+- if simulated: explicit reason string (e.g. "EAS_TOKEN missing", "EAS CLI not available")
+
+D) Artifacts list proof:
+curl -s http://localhost:5000/api/mobile/publish/jobs/<JOB_ID> \
+-H "Authorization: Bearer <ADMIN_TOKEN>" \
+-H "x-tenant-id: <TENANT_ID>"
+
+Must show artifact entries: eas_build_url OR build file.
+
+5) Manual run-now endpoint proof (raw)
+- Create a second job (or reuse queued job) then:
+curl -s -X POST http://localhost:5000/api/mobile/publish/jobs/<JOB_ID>/run-now \
+-H "Authorization: Bearer <ADMIN_TOKEN>" \
+-H "x-tenant-id: <TENANT_ID>"
+
+Paste output + show status changed.
+
+6) Flutter target proof (build stage)
+Repeat step 4 with target:"flutter".
+Artifacts must show either:
+- aab/apk produced (filePath + size), OR
+- explicit fail with actionable reason (toolchain missing) — not a generic error.
+
+7) FlutterFlow Mode A proof
+Start publish job with target:"flutterflow".
+Must produce artifact:
+- PUBLISH_INSTRUCTIONS.md (or named equivalent)
+Show artifact record and download URL working (HTTP 200).
+
+8) Rate limit proof (run-now or start)
+Burst 11 requests to start or run-now:
+- show request 10 OK
+- request 11 => 429 with Retry-After
+
+9) Redaction proof
+Trigger a controlled error with Authorization header and prove token is redacted in logs:
+curl -i http://localhost:5000/api/mobile/publish/jobs/<NON_EXISTENT_ID>/logs \
+-H "Authorization: Bearer SECRET_TEST_TOKEN_123" \
+-H "x-tenant-id: <TENANT_ID>"
+
+Paste relevant server log lines showing [REDACTED] and not the token.
+
+10) Regression
+./scripts/smoke.sh (full output)
+./scripts/verify.sh (last ~40 lines)
+
+11) Proof document
+Open and paste first ~60 lines of:
+reports/step29-proof.md
+It must include links/paths to raw outputs above, and clearly mark any simulation.
+
+STOP after collecting proof. Do not start Step 30.
