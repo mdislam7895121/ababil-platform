@@ -1,11 +1,41 @@
 import { Router, Response } from "express";
-import { prisma } from "../index.js";
+import { PrismaClient } from "@prisma/client";
 import { AuthRequest, requireRole } from "../middleware/auth.js";
-import { logAudit } from "../lib/audit.js";
 import { z } from "zod";
-import rateLimit from "express-rate-limit";
+import { rateLimit } from "express-rate-limit";
+
+const prisma = new PrismaClient();
+
+async function logAudit(params: {
+  tenantId: string;
+  actorUserId?: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  metadata?: Record<string, unknown>;
+}) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        tenantId: params.tenantId,
+        actorUserId: params.actorUserId,
+        action: params.action,
+        entityType: params.entityType,
+        entityId: params.entityId,
+        metadata: params.metadata as any
+      }
+    });
+  } catch (error) {
+    console.error('Failed to create audit log:', error);
+  }
+}
 
 const router = Router();
+
+// Simple test route to verify partners module is loading
+router.get("/test", (req, res) => {
+  res.json({ ok: true, message: "Partners route is working!" });
+});
 
 const partnerApplyLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -76,9 +106,13 @@ router.post("/apply", partnerApplyLimiter, requireRole("owner", "admin"), async 
       },
     });
 
-    await logAudit(tenantId, userId, "PARTNER_APPLIED", "PartnerAccount", partner.id, {
-      displayName: partner.displayName,
-      contactEmail: partner.contactEmail,
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: "PARTNER_APPLIED",
+      entityType: "PartnerAccount",
+      entityId: partner.id,
+      metadata: { displayName: partner.displayName, contactEmail: partner.contactEmail },
     });
 
     res.status(201).json({ partner, message: "Partner application submitted" });
@@ -186,6 +220,30 @@ router.get("/my/payouts", requireRole("owner", "admin"), async (req: AuthRequest
   }
 });
 
+router.get("/my/listings", requireRole("owner", "admin"), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+
+    const partner = await prisma.partnerAccount.findUnique({
+      where: { tenantId },
+    });
+
+    if (!partner) {
+      return res.status(403).json({ error: "Not a partner" });
+    }
+
+    const listings = await prisma.partnerListing.findMany({
+      where: { partnerId: partner.id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json({ listings });
+  } catch (error) {
+    console.error("Partner my listings error:", error);
+    res.status(500).json({ error: "Failed to fetch listings" });
+  }
+});
+
 router.get("/", requireRole("owner", "admin"), async (req: AuthRequest, res: Response) => {
   try {
     const { status, page = "1", limit = "20" } = req.query;
@@ -241,8 +299,13 @@ router.post("/:id/approve", requireRole("owner", "admin"), async (req: AuthReque
       data: { status: "approved" },
     });
 
-    await logAudit(tenantId, userId, "PARTNER_APPROVED", "PartnerAccount", id, {
-      previousStatus: partner.status,
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: "PARTNER_APPROVED",
+      entityType: "PartnerAccount",
+      entityId: id,
+      metadata: { previousStatus: partner.status },
     });
 
     res.json({ partner: updated, message: "Partner approved" });
@@ -276,9 +339,13 @@ router.post("/:id/suspend", requireRole("owner", "admin"), async (req: AuthReque
       data: { status: "suspended" },
     });
 
-    await logAudit(tenantId, userId, "PARTNER_SUSPENDED", "PartnerAccount", id, {
-      previousStatus: partner.status,
-      reason: reason || "No reason provided",
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: "PARTNER_SUSPENDED",
+      entityType: "PartnerAccount",
+      entityId: id,
+      metadata: { previousStatus: partner.status, reason: reason || "No reason provided" },
     });
 
     res.json({ partner: updated, message: "Partner suspended" });
@@ -343,11 +410,18 @@ router.post("/:partnerId/listings", partnerListingLimiter, requireRole("owner", 
       },
     });
 
-    await logAudit(tenantId, userId, "PARTNER_LISTING_CREATED", "PartnerListing", listing.id, {
-      partnerId,
-      marketplaceItemId: parsed.data.marketplaceItemId,
-      commissionType: parsed.data.commissionType,
-      commissionValue: parsed.data.commissionValue,
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: "PARTNER_LISTING_CREATED",
+      entityType: "PartnerListing",
+      entityId: listing.id,
+      metadata: {
+        partnerId,
+        marketplaceItemId: parsed.data.marketplaceItemId,
+        commissionType: parsed.data.commissionType,
+        commissionValue: parsed.data.commissionValue,
+      },
     });
 
     res.status(201).json({ listing, message: "Partner listing created" });
@@ -483,10 +557,13 @@ router.post("/:partnerId/payouts/generate", partnerPayoutLimiter, requireRole("o
       },
     });
 
-    await logAudit(tenantId, userId, "PARTNER_PAYOUT_GENERATED", "PartnerPayout", payout.id, {
-      partnerId,
-      amount: totalNet,
-      earningsCount: earningsNotPaid.length,
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: "PARTNER_PAYOUT_GENERATED",
+      entityType: "PartnerPayout",
+      entityId: payout.id,
+      metadata: { partnerId, amount: totalNet, earningsCount: earningsNotPaid.length },
     });
 
     res.status(201).json({ payout, message: "Payout generated" });
@@ -522,9 +599,13 @@ router.post("/:partnerId/payouts/:payoutId/approve", partnerPayoutLimiter, requi
       },
     });
 
-    await logAudit(tenantId, userId, "PARTNER_PAYOUT_APPROVED", "PartnerPayout", payoutId, {
-      partnerId,
-      amount: Number(payout.amount),
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: "PARTNER_PAYOUT_APPROVED",
+      entityType: "PartnerPayout",
+      entityId: payoutId,
+      metadata: { partnerId, amount: Number(payout.amount) },
     });
 
     res.json({ payout: updated, message: "Payout approved" });
@@ -563,10 +644,13 @@ router.post("/:partnerId/payouts/:payoutId/mark-paid", partnerPayoutLimiter, req
       },
     });
 
-    await logAudit(tenantId, userId, "PARTNER_PAYOUT_PAID", "PartnerPayout", payoutId, {
-      partnerId,
-      amount: Number(payout.amount),
-      payoutMethod,
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: "PARTNER_PAYOUT_PAID",
+      entityType: "PartnerPayout",
+      entityId: payoutId,
+      metadata: { partnerId, amount: Number(payout.amount), payoutMethod },
     });
 
     res.json({ payout: updated, message: "Payout marked as paid" });
@@ -654,11 +738,17 @@ export async function accruePartnerEarning(invoiceId: string, grossAmount: numbe
     });
 
     if (invoice.tenantId) {
-      await logAudit(invoice.tenantId, null, "PARTNER_EARNING_ACCRUED", "PartnerEarning", invoiceId, {
-        partnerId: partnerListing.partnerId,
-        grossAmount,
-        commissionAmount,
-        partnerNet,
+      await logAudit({
+        tenantId: invoice.tenantId,
+        action: "PARTNER_EARNING_ACCRUED",
+        entityType: "PartnerEarning",
+        entityId: invoiceId,
+        metadata: {
+          partnerId: partnerListing.partnerId,
+          grossAmount,
+          commissionAmount,
+          partnerNet,
+        },
       });
     }
 
