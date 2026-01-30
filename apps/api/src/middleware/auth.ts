@@ -133,6 +133,14 @@ export const ROUTE_SCOPES: Record<string, ApiScope[]> = {
   'PUT:/api/support/tickets': ['support:write'],
   'PATCH:/api/support/tickets': ['support:write'],
   
+  // === MOBILE BUILDER OPERATIONS (require 'builder:write' scope) ===
+  'GET:/api/mobile/specs': ['read'],
+  'GET:/api/mobile/jobs': ['read'],
+  'GET:/api/mobile/download/': ['read'],
+  'POST:/api/mobile/spec/draft': ['builder:write'],
+  'POST:/api/mobile/spec/approve': ['builder:write'],
+  'POST:/api/mobile/project/generate': ['builder:write'],
+  
   // === ADMIN OPERATIONS (require 'admin:write' scope) ===
   'POST:/api/security-center/settings': ['admin:write'],
   'PUT:/api/security-center/settings': ['admin:write'],

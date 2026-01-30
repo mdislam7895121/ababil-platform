@@ -194,3 +194,25 @@ export const i18nGenerateLimiter = createRateLimiter({
   keyStrategy: 'tenantUser',
   routeName: 'i18n/generate'
 });
+
+// Mobile builder rate limiters
+export const mobileDraftLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  keyStrategy: 'tenantUser',
+  routeName: 'mobile/draft'
+});
+
+export const mobileApproveLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  keyStrategy: 'tenantUser',
+  routeName: 'mobile/approve'
+});
+
+export const mobileGenerateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyStrategy: 'tenantUser',
+  routeName: 'mobile/generate'
+});

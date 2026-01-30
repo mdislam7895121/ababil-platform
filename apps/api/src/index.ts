@@ -82,6 +82,7 @@ import securityCenterRoutes from './routes/securityCenter.js';
 import legalRoutes from './routes/legal.js';
 import reportsRoutes from './routes/reports.js';
 import accessReviewRoutes from './routes/accessReview.js';
+import { mobileRoutes } from './routes/mobile.js';
 import { authMiddleware, tenantMiddleware, scopeMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 import { startScheduler } from './jobs/index.js';
@@ -243,6 +244,7 @@ app.use('/api/security-center', apiLimiter, authMiddleware, tenantMiddleware, sc
 app.use('/api/legal', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, legalRoutes);
 app.use('/api/reports', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, reportsRoutes);
 app.use('/api/access-review', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, accessReviewRoutes);
+app.use('/api/mobile', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, mobileRoutes);
 
 // Error handler with human-friendly messages and safe logging
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
