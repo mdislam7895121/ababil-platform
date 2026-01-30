@@ -244,7 +244,8 @@ app.use('/api/security-center', apiLimiter, authMiddleware, tenantMiddleware, sc
 app.use('/api/legal', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, legalRoutes);
 app.use('/api/reports', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, reportsRoutes);
 app.use('/api/access-review', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, accessReviewRoutes);
-app.use('/api/mobile', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, mobileRoutes);
+// Mobile routes have dedicated per-endpoint rate limiters (20/30/10 per hour), skip global limiter
+app.use('/api/mobile', authMiddleware, tenantMiddleware, scopeMiddleware, mobileRoutes);
 
 // Error handler with human-friendly messages and safe logging
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
