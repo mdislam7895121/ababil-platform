@@ -38,7 +38,7 @@ const keyGenerators: Record<KeyStrategy, (req: Request) => string> = {
   },
   tenantUser: (req) => {
     const tenantId = req.headers['x-tenant-id'] as string || 'no-tenant';
-    const userId = (req as any).user?.id || 'no-user';
+    const userId = (req as any).userId || (req as any).user?.id || 'no-user';
     return `tenant:${tenantId}:user:${userId}`;
   },
   token: (req) => {

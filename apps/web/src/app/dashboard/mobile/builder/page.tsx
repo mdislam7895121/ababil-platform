@@ -201,6 +201,7 @@ export default function MobileBuilderPage() {
   };
 
   const isLoading = draftMutation.isPending || approveMutation.isPending || generateMutation.isPending;
+  const isAuthenticated = token && currentTenant?.id;
 
   return (
     <DashboardLayout>
@@ -212,6 +213,16 @@ export default function MobileBuilderPage() {
             <p className="text-muted-foreground">Generate a complete Expo mobile app from a description</p>
           </div>
         </div>
+
+        {!isAuthenticated && (
+          <Alert variant="destructive" data-testid="alert-auth-required">
+            <Lock className="h-4 w-4" />
+            <AlertTitle>Authentication Required</AlertTitle>
+            <AlertDescription>
+              Please sign in and select a workspace to use the Mobile App Builder.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {error && (
           <Alert variant="destructive" data-testid="alert-error">
@@ -243,7 +254,7 @@ export default function MobileBuilderPage() {
               />
               <Button
                 onClick={handleSubmit}
-                disabled={!inputValue.trim() || isLoading}
+                disabled={!inputValue.trim() || isLoading || !isAuthenticated}
                 size="lg"
                 className="px-4 self-end"
                 data-testid="button-generate-spec"
