@@ -89,6 +89,11 @@ interface NextStep {
   completed: boolean;
 }
 
+let messageIdCounter = 0;
+function generateMessageId(): string {
+  return `msg-${Date.now()}-${++messageIdCounter}`;
+}
+
 export default function AgentPage() {
   const { token, currentTenant } = useAuth();
   const { toast } = useToast();
@@ -153,7 +158,7 @@ export default function AgentPage() {
   const addMessage = (message: Omit<ChatMessage, "id" | "timestamp">) => {
     const newMessage: ChatMessage = {
       ...message,
-      id: `msg-${Date.now()}`,
+      id: generateMessageId(),
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, newMessage]);
@@ -525,8 +530,8 @@ export default function AgentPage() {
               <Button
                 onClick={handleSubmit}
                 disabled={!inputValue.trim() || isLoading}
-                size="icon"
-                className="h-[60px] w-[60px]"
+                size="lg"
+                className="px-4 self-end"
                 data-testid="button-send"
               >
                 {draftMutation.isPending ? (
