@@ -216,3 +216,25 @@ export const mobileGenerateLimiter = createRateLimiter({
   keyStrategy: 'tenantUser',
   routeName: 'mobile/generate'
 });
+
+// Mobile publish rate limiters
+export const mobilePublishCredentialsLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyStrategy: 'tenantUser',
+  routeName: 'mobile/publish/credentials'
+});
+
+export const mobilePublishStartLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyStrategy: 'tenantUser',
+  routeName: 'mobile/publish/start'
+});
+
+export const mobilePublishJobsListLimiter = createRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  max: 120,
+  keyStrategy: 'tenantUser',
+  routeName: 'mobile/publish/jobs'
+});

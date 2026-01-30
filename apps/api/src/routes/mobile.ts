@@ -1,9 +1,18 @@
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
-import { mobileDraftLimiter, mobileApproveLimiter, mobileGenerateLimiter } from '../middleware/rateLimit.js';
+import { 
+  mobileDraftLimiter, 
+  mobileApproveLimiter, 
+  mobileGenerateLimiter,
+  mobilePublishCredentialsLimiter,
+  mobilePublishStartLimiter,
+  mobilePublishJobsListLimiter
+} from '../middleware/rateLimit.js';
 import { logAudit } from '../lib/audit.js';
-import { createWriteStream, createReadStream, mkdirSync, existsSync, statSync, unlinkSync, rmSync } from 'fs';
+import { encrypt, decrypt } from '../lib/crypto.js';
+import { redactObject, safeLog } from '../lib/redact.js';
+import { createWriteStream, createReadStream, mkdirSync, existsSync, statSync, unlinkSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import archiver from 'archiver';
 
@@ -1539,5 +1548,486 @@ For issues with the import, please contact Platform Factory support.
     archive.finalize();
   });
 }
+
+// ============================================================================
+// MOBILE PUBLISH PIPELINE
+// ============================================================================
+
+const MOBILE_PUBLISH_LOGS_DIR = '/tmp/mobile-publish-logs';
+const PUBLISH_JOB_EXPIRY_HOURS = 72;
+
+const VALID_CREDENTIAL_TYPES = [
+  'apple_api_key',
+  'apple_cert',
+  'android_keystore',
+  'play_service_account',
+  'expo_token'
+] as const;
+
+const VALID_TARGETS = ['expo', 'flutter', 'flutterflow'] as const;
+const VALID_PLATFORMS = ['ios', 'android', 'both'] as const;
+
+// Ensure logs directory exists
+if (!existsSync(MOBILE_PUBLISH_LOGS_DIR)) {
+  mkdirSync(MOBILE_PUBLISH_LOGS_DIR, { recursive: true });
+}
+
+// POST /api/mobile/publish/credentials - Store encrypted credentials
+router.post('/publish/credentials', mobilePublishCredentialsLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const userId = req.userId!;
+    const { type, name, data } = req.body;
+
+    if (!type || !VALID_CREDENTIAL_TYPES.includes(type)) {
+      res.status(400).json({ 
+        error: 'Invalid credential type', 
+        validTypes: VALID_CREDENTIAL_TYPES 
+      });
+      return;
+    }
+
+    if (!name || typeof name !== 'string' || name.length < 1) {
+      res.status(400).json({ error: 'Credential name is required' });
+      return;
+    }
+
+    if (!data || typeof data !== 'string' || data.length < 10) {
+      res.status(400).json({ error: 'Credential data is required and must be at least 10 characters' });
+      return;
+    }
+
+    // Encrypt the credential data
+    const encryptedData = encrypt(data);
+
+    // Upsert credential (one per type per tenant)
+    const credential = await prisma.mobilePublishCredential.upsert({
+      where: {
+        tenantId_type: {
+          tenantId,
+          type
+        }
+      },
+      create: {
+        tenantId,
+        type,
+        name,
+        encryptedData
+      },
+      update: {
+        name,
+        encryptedData,
+        updatedAt: new Date()
+      }
+    });
+
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: 'MOBILE_PUBLISH_CREDENTIAL_STORED',
+      entityType: 'mobile_publish_credential',
+      entityId: credential.id,
+      metadata: { 
+        type,
+        name,
+        // Never log actual credential data
+      }
+    });
+
+    safeLog('info', `[MobilePublish] Credential stored type=${type} tenant=${tenantId}`);
+
+    res.json({
+      id: credential.id,
+      type: credential.type,
+      name: credential.name,
+      createdAt: credential.createdAt,
+      updatedAt: credential.updatedAt
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Credential storage failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to store credential' });
+  }
+});
+
+// GET /api/mobile/publish/credentials/status - Check what credentials are configured
+router.get('/publish/credentials/status', mobilePublishCredentialsLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+
+    const credentials = await prisma.mobilePublishCredential.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        type: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    const credentialMap: Record<string, { configured: boolean; name?: string; updatedAt?: Date }> = {};
+    
+    for (const type of VALID_CREDENTIAL_TYPES) {
+      const cred = credentials.find(c => c.type === type);
+      credentialMap[type] = cred 
+        ? { configured: true, name: cred.name, updatedAt: cred.updatedAt }
+        : { configured: false };
+    }
+
+    // Calculate what's missing per target
+    const missing: Record<string, string[]> = {
+      expo: [],
+      flutter: [],
+      flutterflow: []
+    };
+
+    // Expo needs: expo_token (optional), apple_api_key (for iOS), android_keystore (for Android)
+    if (!credentialMap.expo_token?.configured) missing.expo.push('expo_token');
+    if (!credentialMap.apple_api_key?.configured) missing.expo.push('apple_api_key');
+    if (!credentialMap.android_keystore?.configured) missing.expo.push('android_keystore');
+
+    // Flutter needs: apple_cert (for iOS), android_keystore (for Android), play_service_account (for Play Store)
+    if (!credentialMap.apple_cert?.configured) missing.flutter.push('apple_cert');
+    if (!credentialMap.android_keystore?.configured) missing.flutter.push('android_keystore');
+    if (!credentialMap.play_service_account?.configured) missing.flutter.push('play_service_account');
+
+    // FlutterFlow: primarily visual builder, needs same as flutter for actual publishing
+    if (!credentialMap.apple_cert?.configured) missing.flutterflow.push('apple_cert');
+    if (!credentialMap.android_keystore?.configured) missing.flutterflow.push('android_keystore');
+
+    res.json({
+      credentials: credentialMap,
+      missing,
+      readyFor: {
+        expo: missing.expo.length === 0,
+        flutter: missing.flutter.length === 0,
+        flutterflow: missing.flutterflow.length === 0
+      }
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Credentials status check failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to check credentials status' });
+  }
+});
+
+// DELETE /api/mobile/publish/credentials/:type - Delete a credential
+router.delete('/publish/credentials/:type', mobilePublishCredentialsLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const userId = req.userId!;
+    const { type } = req.params;
+
+    if (!VALID_CREDENTIAL_TYPES.includes(type as any)) {
+      res.status(400).json({ error: 'Invalid credential type' });
+      return;
+    }
+
+    const deleted = await prisma.mobilePublishCredential.deleteMany({
+      where: { tenantId, type }
+    });
+
+    if (deleted.count === 0) {
+      res.status(404).json({ error: 'Credential not found' });
+      return;
+    }
+
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: 'MOBILE_PUBLISH_CREDENTIAL_DELETED',
+      entityType: 'mobile_publish_credential',
+      entityId: type,
+      metadata: { type }
+    });
+
+    res.json({ success: true, deletedCount: deleted.count });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Credential deletion failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to delete credential' });
+  }
+});
+
+// POST /api/mobile/publish/start - Start a publish job
+router.post('/publish/start', mobilePublishStartLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const userId = req.userId!;
+    const { target, platform } = req.body;
+
+    if (!target || !VALID_TARGETS.includes(target)) {
+      res.status(400).json({ 
+        error: 'Invalid target', 
+        validTargets: VALID_TARGETS 
+      });
+      return;
+    }
+
+    if (!platform || !VALID_PLATFORMS.includes(platform)) {
+      res.status(400).json({ 
+        error: 'Invalid platform', 
+        validPlatforms: VALID_PLATFORMS 
+      });
+      return;
+    }
+
+    // Check if required credentials are configured
+    const credentials = await prisma.mobilePublishCredential.findMany({
+      where: { tenantId },
+      select: { type: true }
+    });
+    const configuredTypes = credentials.map(c => c.type);
+
+    const requiredCreds: string[] = [];
+    if (target === 'expo') {
+      if (platform === 'ios' || platform === 'both') requiredCreds.push('apple_api_key');
+      if (platform === 'android' || platform === 'both') requiredCreds.push('android_keystore');
+    } else if (target === 'flutter' || target === 'flutterflow') {
+      if (platform === 'ios' || platform === 'both') requiredCreds.push('apple_cert');
+      if (platform === 'android' || platform === 'both') {
+        requiredCreds.push('android_keystore');
+        requiredCreds.push('play_service_account');
+      }
+    }
+
+    const missingCreds = requiredCreds.filter(r => !configuredTypes.includes(r));
+    if (missingCreds.length > 0) {
+      res.status(400).json({
+        error: 'Missing required credentials',
+        missing: missingCreds,
+        hint: 'Please configure all required credentials before starting a publish job'
+      });
+      return;
+    }
+
+    // Create logs file
+    const jobId = `pub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const logsPath = join(MOBILE_PUBLISH_LOGS_DIR, `${jobId}.log`);
+    writeFileSync(logsPath, `[${new Date().toISOString()}] Job ${jobId} created for ${target}/${platform}\n`);
+
+    // Create the publish job
+    const expiresAt = new Date(Date.now() + PUBLISH_JOB_EXPIRY_HOURS * 60 * 60 * 1000);
+    
+    const job = await prisma.mobilePublishJob.create({
+      data: {
+        tenantId,
+        target,
+        platform,
+        status: 'queued',
+        logsPath,
+        expiresAt
+      }
+    });
+
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: 'MOBILE_PUBLISH_JOB_STARTED',
+      entityType: 'mobile_publish_job',
+      entityId: job.id,
+      metadata: { target, platform }
+    });
+
+    // Dummy runner: immediately mark as running then completed (for STEP 28)
+    // Real implementation will be in STEP 29-31
+    setTimeout(async () => {
+      try {
+        // Update to running
+        await prisma.mobilePublishJob.update({
+          where: { id: job.id },
+          data: { 
+            status: 'running',
+            startedAt: new Date()
+          }
+        });
+        
+        writeFileSync(logsPath, `[${new Date().toISOString()}] Job started - validating inputs...\n`, { flag: 'a' });
+
+        // Simulate some processing time
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Mark as completed (dummy success)
+        await prisma.mobilePublishJob.update({
+          where: { id: job.id },
+          data: { 
+            status: 'completed',
+            completedAt: new Date()
+          }
+        });
+
+        writeFileSync(logsPath, `[${new Date().toISOString()}] Job completed successfully (dummy runner)\n`, { flag: 'a' });
+
+        safeLog('info', `[MobilePublish] Dummy job completed id=${job.id}`);
+      } catch (err: any) {
+        safeLog('error', '[MobilePublish] Dummy runner error', { error: err.message });
+      }
+    }, 100);
+
+    res.json({
+      id: job.id,
+      target: job.target,
+      platform: job.platform,
+      status: job.status,
+      expiresAt: job.expiresAt,
+      createdAt: job.createdAt
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Job start failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to start publish job' });
+  }
+});
+
+// GET /api/mobile/publish/jobs - List publish jobs for tenant
+router.get('/publish/jobs', mobilePublishJobsListLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    const [jobs, total] = await Promise.all([
+      prisma.mobilePublishJob.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        include: {
+          artifacts: true
+        }
+      }),
+      prisma.mobilePublishJob.count({ where: { tenantId } })
+    ]);
+
+    res.json({
+      jobs: jobs.map(j => ({
+        id: j.id,
+        target: j.target,
+        platform: j.platform,
+        status: j.status,
+        error: j.error,
+        artifacts: j.artifacts.map(a => ({
+          id: a.id,
+          kind: a.kind,
+          size: a.size
+        })),
+        startedAt: j.startedAt,
+        completedAt: j.completedAt,
+        expiresAt: j.expiresAt,
+        createdAt: j.createdAt
+      })),
+      total,
+      limit,
+      offset
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Jobs list failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to list publish jobs' });
+  }
+});
+
+// GET /api/mobile/publish/jobs/:id - Get job details
+router.get('/publish/jobs/:id', mobilePublishJobsListLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { id } = req.params;
+
+    const job = await prisma.mobilePublishJob.findFirst({
+      where: { id, tenantId },
+      include: {
+        artifacts: true
+      }
+    });
+
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' });
+      return;
+    }
+
+    // Read logs if available
+    let logs = '';
+    if (job.logsPath && existsSync(job.logsPath)) {
+      const { readFileSync } = await import('fs');
+      logs = readFileSync(job.logsPath, 'utf-8');
+    }
+
+    res.json({
+      id: job.id,
+      target: job.target,
+      platform: job.platform,
+      status: job.status,
+      error: job.error,
+      logs,
+      artifacts: job.artifacts.map(a => ({
+        id: a.id,
+        kind: a.kind,
+        path: a.path,
+        url: a.url,
+        checksum: a.checksum,
+        size: a.size,
+        createdAt: a.createdAt
+      })),
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+      expiresAt: job.expiresAt,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Job detail failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to get job details' });
+  }
+});
+
+// POST /api/mobile/publish/jobs/:id/cancel - Cancel a publish job
+router.post('/publish/jobs/:id/cancel', mobilePublishJobsListLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const userId = req.userId!;
+    const { id } = req.params;
+
+    const job = await prisma.mobilePublishJob.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' });
+      return;
+    }
+
+    if (job.status === 'completed' || job.status === 'failed' || job.status === 'canceled') {
+      res.status(400).json({ error: `Cannot cancel job with status: ${job.status}` });
+      return;
+    }
+
+    const updatedJob = await prisma.mobilePublishJob.update({
+      where: { id },
+      data: {
+        status: 'canceled',
+        completedAt: new Date()
+      }
+    });
+
+    // Append to logs
+    if (job.logsPath && existsSync(job.logsPath)) {
+      writeFileSync(job.logsPath, `[${new Date().toISOString()}] Job canceled by user\n`, { flag: 'a' });
+    }
+
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: 'MOBILE_PUBLISH_JOB_CANCELED',
+      entityType: 'mobile_publish_job',
+      entityId: id,
+      metadata: { previousStatus: job.status }
+    });
+
+    res.json({
+      id: updatedJob.id,
+      status: updatedJob.status,
+      canceledAt: updatedJob.completedAt
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Job cancel failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to cancel job' });
+  }
+});
 
 export const mobileRoutes = router;
