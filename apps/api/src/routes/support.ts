@@ -76,11 +76,11 @@ async function getSuccessContext(tenantId: string) {
       lastIncident
     ] = await Promise.all([
       prisma.builderRequest.findFirst({ where: { tenantId }, orderBy: { createdAt: 'desc' } }),
-      prisma.previewSession.findFirst({ where: { tenantId, status: 'active' } }),
+      prisma.previewSession.findFirst({ where: { tenantId, revoked: false } }),
       prisma.subscription.findFirst({ where: { tenantId } }),
       prisma.deployConfig.findUnique({ where: { tenantId } }),
       prisma.deployVerificationRun.findFirst({ where: { tenantId }, orderBy: { createdAt: 'desc' } }),
-      prisma.incident.findFirst({ where: { tenantId }, orderBy: { createdAt: 'desc' } })
+      prisma.incident.findFirst({ orderBy: { createdAt: 'desc' } })
     ]);
 
     let stage = 'onboarding';
@@ -94,7 +94,7 @@ async function getSuccessContext(tenantId: string) {
     return {
       tenantStage: stage,
       successPercent: percent,
-      lastError: lastIncident ? { type: lastIncident.type, title: lastIncident.title } : null,
+      lastError: lastIncident ? { type: lastIncident.type, message: lastIncident.message } : null,
       lastVerification: lastVerification ? { status: lastVerification.status } : null,
       deployStatus: deployConfig?.status || 'not_configured'
     };
@@ -128,8 +128,7 @@ router.post('/tickets', requireRole('owner', 'admin', 'staff', 'viewer'), async 
         subject: redactSecrets(subject),
         category,
         priority,
-        status: 'open',
-        metadata: successContext ? { successContext } : undefined
+        status: 'open'
       }
     });
 

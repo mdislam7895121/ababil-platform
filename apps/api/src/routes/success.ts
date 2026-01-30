@@ -61,7 +61,7 @@ async function calculateSuccessPath(tenantId: string): Promise<SuccessPathRespon
   ] = await Promise.all([
     prisma.builderRequest.findFirst({ where: { tenantId }, orderBy: { createdAt: 'desc' } }),
     prisma.blueprint.findFirst({ where: { tenantId }, orderBy: { createdAt: 'desc' } }),
-    prisma.previewSession.findFirst({ where: { tenantId, status: 'active' }, orderBy: { createdAt: 'desc' } }),
+    prisma.previewSession.findFirst({ where: { tenantId, revoked: false }, orderBy: { createdAt: 'desc' } }),
     prisma.subscription.findFirst({ where: { tenantId } }),
     prisma.deployConfig.findUnique({ where: { tenantId } }),
     prisma.deployVerificationRun.findFirst({ where: { tenantId, status: 'pass' }, orderBy: { createdAt: 'desc' } }),
@@ -402,10 +402,10 @@ router.get('/recovery/status', requireRole('owner', 'admin', 'staff'), async (re
       }),
       prisma.deployConfig.findUnique({ where: { tenantId: req.tenantId! } }),
       prisma.incident.findMany({ 
-        where: { tenantId: req.tenantId!, status: { in: ['triggered', 'acknowledged'] } } 
+        where: { resolvedAt: null } 
       }),
-      prisma.healthCheck.findMany({ 
-        where: { tenantId: req.tenantId!, enabled: true } 
+      prisma.healthStatus.findMany({ 
+        where: {} 
       }),
       prisma.subscription.findFirst({ where: { tenantId: req.tenantId! } })
     ]);
@@ -454,7 +454,7 @@ router.get('/recovery/status', requireRole('owner', 'admin', 'staff'), async (re
       issues.push({
         issueType: `incident_${incident.type}`,
         severity: incident.severity as any,
-        whyThisHappened: `Active incident detected: ${incident.title}`,
+        whyThisHappened: `Active incident detected: ${incident.message}`,
         estimatedFixTime: incident.severity === 'critical' ? 'Immediate action required' : '15-60 minutes',
         recoverySteps: [
           'Review incident details in monitoring',
@@ -561,7 +561,7 @@ router.get('/next-steps', requireRole('owner', 'admin', 'staff', 'viewer'), asyn
       verificationRun
     ] = await Promise.all([
       prisma.builderRequest.findFirst({ where: { tenantId: req.tenantId! }, orderBy: { createdAt: 'desc' } }),
-      prisma.previewSession.findFirst({ where: { tenantId: req.tenantId!, status: 'active' } }),
+      prisma.previewSession.findFirst({ where: { tenantId: req.tenantId!, revoked: false } }),
       prisma.subscription.findFirst({ where: { tenantId: req.tenantId! } }),
       prisma.deployConfig.findUnique({ where: { tenantId: req.tenantId! } }),
       prisma.deployVerificationRun.findFirst({ where: { tenantId: req.tenantId!, status: 'pass' } })
@@ -726,7 +726,6 @@ router.get('/context-for-support', requireRole('owner', 'admin', 'staff', 'viewe
       deployConfig
     ] = await Promise.all([
       prisma.incident.findFirst({ 
-        where: { tenantId: req.tenantId! }, 
         orderBy: { createdAt: 'desc' } 
       }),
       prisma.deployVerificationRun.findFirst({ 
@@ -742,7 +741,7 @@ router.get('/context-for-support', requireRole('owner', 'admin', 'staff', 'viewe
       blockingIssues: successPath.blockingIssues,
       lastError: lastIncident ? {
         type: lastIncident.type,
-        title: lastIncident.title,
+        message: lastIncident.message,
         createdAt: lastIncident.createdAt
       } : null,
       lastVerification: lastVerification ? {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -98,7 +98,7 @@ const STAGE_LABELS: Record<string, string> = {
 const STAGE_ORDER = ['onboarding', 'preview', 'payment', 'deploy', 'live'];
 
 export default function SuccessPage() {
-  const { token, tenantId } = useAuth();
+  const { token, currentTenant } = useAuth();
   const router = useRouter();
   const [successPath, setSuccessPath] = useState<SuccessPathData | null>(null);
   const [contextualHelp, setContextualHelp] = useState<ContextualHelpData | null>(null);
@@ -106,6 +106,8 @@ export default function SuccessPage() {
   const [nextSteps, setNextSteps] = useState<NextStepsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedHelpScreen, setSelectedHelpScreen] = useState('dashboard');
+  
+  const tenantId = currentTenant?.id;
 
   const headers = {
     'Authorization': `Bearer ${token}`,
