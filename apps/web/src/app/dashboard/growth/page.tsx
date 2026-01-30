@@ -157,13 +157,13 @@ export default function GrowthPage() {
           <p className="text-muted-foreground">Special offers, upgrades, and referral opportunities</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild data-testid="link-referrals">
             <Link href="/dashboard/growth/referrals">
               <TrendingUp className="h-4 w-4 mr-2" />
               Referrals
             </Link>
           </Button>
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild data-testid="link-analytics">
             <Link href="/dashboard/growth/analytics">
               <TrendingUp className="h-4 w-4 mr-2" />
               Analytics
@@ -218,7 +218,7 @@ export default function GrowthPage() {
                       <Sparkles className="h-5 w-5 text-green-500" />
                       {offer.name}
                     </CardTitle>
-                    <Badge variant="destructive" className="flex items-center gap-1">
+                    <Badge variant="destructive" className="flex items-center gap-1" data-testid={`badge-offer-timer-${offer.id}`}>
                       <Clock className="h-3 w-3" />
                       {formatTimeRemaining(offer.timeRemaining)}
                     </Badge>
@@ -290,7 +290,7 @@ export default function GrowthPage() {
               Check back later for special promotions and upgrade opportunities.
             </p>
             <div className="mt-4">
-              <Button variant="outline" asChild>
+              <Button variant="outline" asChild data-testid="link-start-referrals">
                 <Link href="/dashboard/growth/referrals">
                   Start Earning with Referrals
                   <ArrowRight className="h-4 w-4 ml-2" />

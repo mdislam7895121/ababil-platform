@@ -115,7 +115,7 @@ export default function GrowthAnalyticsPage() {
           <h1 className="text-2xl font-bold">Growth Analytics</h1>
           <p className="text-muted-foreground">Track referrals, nudges, offers, and upsells</p>
         </div>
-        <Badge variant="outline" className="text-sm">
+        <Badge variant="outline" className="text-sm" data-testid="badge-period">
           <Activity className="h-3 w-3 mr-1" />
           Last 30 days
         </Badge>
@@ -123,8 +123,8 @@ export default function GrowthAnalyticsPage() {
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="events">Recent Events</TabsTrigger>
+          <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
+          <TabsTrigger value="events" data-testid="tab-events">Recent Events</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
