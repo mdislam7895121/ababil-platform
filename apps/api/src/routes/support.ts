@@ -204,7 +204,7 @@ router.post('/tickets/:id/messages', requireRole('owner', 'admin', 'staff', 'vie
     }
 
     const membership = await prisma.membership.findFirst({
-      where: { actorUserId: req.user!.id, tenantId: req.tenantId! }
+      where: { userId: req.user!.id, tenantId: req.tenantId! }
     });
 
     const authorRole = ['owner', 'admin'].includes(membership?.role || '') ? 'admin' : 

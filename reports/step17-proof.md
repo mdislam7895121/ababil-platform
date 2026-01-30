@@ -105,3 +105,8 @@ Features Implemented:
 12. Audit logging for all support actions
 13. Support UI with ticket list, thread view, and Fix My Deploy tab
 ```
+
+## TEST 4 (FIXED): Add Reply Message
+```json
+{"message":{"id":"285bcfb0-39a9-474b-bd24-f63f7ec1c655","ticketId":"9cf48624-ffce-4227-854c-83270e5bb290","authorRole":"admin","authorId":"31e53420-3491-4d60-b58b-c6ce222e01ce","message":"This is my follow-up message with more details about the database connection issue.","attachments":[],"createdAt":"2026-01-30T00:02:46.488Z"}}
+```
