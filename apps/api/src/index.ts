@@ -244,6 +244,87 @@ app.use('/api/security-center', apiLimiter, authMiddleware, tenantMiddleware, sc
 app.use('/api/legal', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, legalRoutes);
 app.use('/api/reports', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, reportsRoutes);
 app.use('/api/access-review', apiLimiter, authMiddleware, tenantMiddleware, scopeMiddleware, accessReviewRoutes);
+// Mobile CI callback - bypasses auth middleware (uses CI_CALLBACK_TOKEN)
+// This must be registered BEFORE the authenticated mobile routes
+app.post('/api/mobile/publish/jobs/:id/ci/callback', apiLimiter, async (req, res, next) => {
+  // Forward to the handler in mobileRoutes (but without auth middleware)
+  // The handler validates CI_CALLBACK_TOKEN
+  const { id } = req.params;
+  const ciToken = req.headers['x-ci-token'] as string;
+  const expectedToken = process.env.CI_CALLBACK_TOKEN;
+
+  if (!expectedToken) {
+    return res.status(500).json({ error: 'CI callback not configured (missing CI_CALLBACK_TOKEN)' });
+  }
+
+  if (!ciToken || ciToken !== expectedToken) {
+    return res.status(401).json({ error: 'Invalid CI callback token' });
+  }
+
+  const { status, runId, runUrl, artifactsUrl, error } = req.body;
+
+  if (!status || !['running', 'completed', 'failed', 'cancelled'].includes(status)) {
+    return res.status(400).json({
+      error: 'Invalid status',
+      validStatuses: ['running', 'completed', 'failed', 'cancelled']
+    });
+  }
+
+  try {
+    const job = await prisma.mobilePublishJob.findUnique({
+      where: { id }
+    });
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    const updateData: any = {
+      ciStatus: status,
+      logs: (job.logs || '') + `\n[${new Date().toISOString()}] CI callback: status=${status}`
+    };
+
+    if (runId) updateData.ciRunId = runId.toString();
+    if (runUrl) updateData.ciRunUrl = runUrl;
+    if (error) updateData.error = error;
+
+    if (status === 'completed') {
+      updateData.status = 'completed';
+      updateData.completedAt = new Date();
+      updateData.logs = (job.logs || '') + `\n[${new Date().toISOString()}] CI build completed successfully`;
+    } else if (status === 'failed') {
+      updateData.status = 'failed';
+      updateData.completedAt = new Date();
+      updateData.logs = (job.logs || '') + `\n[${new Date().toISOString()}] CI build failed: ${error || 'Unknown error'}`;
+    }
+
+    await prisma.mobilePublishJob.update({
+      where: { id },
+      data: updateData
+    });
+
+    const { logAudit } = await import('./lib/audit.js');
+    await logAudit({
+      tenantId: job.tenantId,
+      actorUserId: null,
+      action: 'MOBILE_PUBLISH_CI_CALLBACK',
+      entityType: 'mobile_publish_job',
+      entityId: id,
+      metadata: { status, runId, runUrl, error: error || null }
+    });
+
+    res.json({
+      success: true,
+      jobId: id,
+      status,
+      message: 'Job status updated from CI'
+    });
+  } catch (err: any) {
+    console.error('[MobilePublish] CI callback failed:', err.message);
+    res.status(500).json({ error: 'Failed to process CI callback' });
+  }
+});
+
 // Mobile routes have dedicated per-endpoint rate limiters (20/30/10 per hour), skip global limiter
 app.use('/api/mobile', authMiddleware, tenantMiddleware, scopeMiddleware, mobileRoutes);
 

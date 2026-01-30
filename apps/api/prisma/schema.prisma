@@ -978,6 +978,11 @@ model MobilePublishJob {
   provider    String    @default("local") // eas|flutter_local|flutter_ci|flutterflow
   channel     String    @default("preview") // preview|production
   status      String    @default("queued") // queued|running|completed|failed|canceled
+  runMode     String    @default("local") @map("run_mode") // local|ci
+  ciStatus    String?   @map("ci_status") // not_configured|queued|running|success|failed
+  ciRunUrl    String?   @map("ci_run_url") // GitHub Actions run URL
+  ciRunId     String?   @map("ci_run_id") // GitHub Actions run ID
+  ciTriggeredAt DateTime? @map("ci_triggered_at")
   logsPath    String?   @map("logs_path")
   logs        String?   @db.Text // Store last N lines of logs in DB
   error       String?

@@ -75,6 +75,9 @@ interface PublishJob {
   provider?: string;
   channel?: string;
   status: string;
+  runMode?: string;
+  ciStatus?: string;
+  ciRunUrl?: string;
   error?: string;
   logs?: string;
   artifacts: PublishArtifact[];
@@ -82,6 +85,29 @@ interface PublishJob {
   completedAt?: string;
   expiresAt: string;
   createdAt: string;
+}
+
+interface CapabilityInfo {
+  name: string;
+  localSupported: boolean;
+  ciSupported: boolean;
+  requiredCredentials: Record<string, string[]>;
+  missingCredentials: Record<string, string[]>;
+  readyFor: Record<string, boolean>;
+  ciRequiredSecrets: string[];
+  note?: string;
+}
+
+interface CapabilitiesResponse {
+  capabilities: Record<string, CapabilityInfo>;
+  configuredCredentials: { type: string; name: string; expires?: string; valid: boolean }[];
+  ciEnvironment: {
+    configured: boolean;
+    provider: string;
+    missingEnvVars: string[];
+    workflowPath: string;
+  };
+  recommendations: Record<string, string>;
 }
 
 const CREDENTIAL_INFO: Record<CredentialType, { 
@@ -135,6 +161,9 @@ export default function MobilePublishPage() {
   const [startingJob, setStartingJob] = useState<{ target: string; platform: string } | null>(null);
 
   const isAdmin = role === "owner" || role === "admin";
+  const [runMode, setRunMode] = useState<"local" | "ci">("local");
+  const [selectedStage, setSelectedStage] = useState<"build" | "submit">("build");
+  const [selectedChannel, setSelectedChannel] = useState<"preview" | "production">("preview");
 
   const { data: credentialsStatus, isLoading: loadingCredentials, refetch: refetchCredentials } = useQuery<CredentialsStatusResponse>({
     queryKey: ["/api/mobile/publish/credentials/status"],
@@ -145,6 +174,11 @@ export default function MobilePublishPage() {
     queryKey: ["/api/mobile/publish/jobs"],
     enabled: !!token && !!tenantId && isAdmin,
     refetchInterval: 5000,
+  });
+
+  const { data: capabilities, isLoading: loadingCapabilities } = useQuery<CapabilitiesResponse>({
+    queryKey: ["/api/mobile/publish/capabilities"],
+    enabled: !!token && !!tenantId && isAdmin,
   });
 
   const storeCredentialMutation = useMutation({
@@ -195,7 +229,7 @@ export default function MobilePublishPage() {
   });
 
   const startJobMutation = useMutation({
-    mutationFn: async (data: { target: string; platform: string }) => {
+    mutationFn: async (data: { target: string; platform: string; stage: string; channel: string }) => {
       const res = await fetch("/api/mobile/publish/start", {
         method: "POST",
         headers: {
@@ -208,15 +242,47 @@ export default function MobilePublishPage() {
       if (!res.ok) throw new Error((await res.json()).error || "Failed to start job");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({ title: "Job Started", description: "Publish job has been queued." });
       queryClient.invalidateQueries({ queryKey: ["/api/mobile/publish/jobs"] });
       setStartingJob(null);
       setActiveTab("jobs");
+      
+      // If CI mode, trigger CI
+      if (runMode === "ci" && data.id) {
+        triggerCiMutation.mutate(data.id);
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       setStartingJob(null);
+    },
+  });
+
+  const triggerCiMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const res = await fetch(`/api/mobile/publish/jobs/${jobId}/trigger-ci`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "x-tenant-id": tenantId || "",
+        },
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to trigger CI");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "CI Triggered", 
+        description: data.ciRunUrl ? `Workflow started: ${data.ciRunUrl}` : "CI build triggered" 
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/mobile/publish/jobs"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "CI Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -268,7 +334,12 @@ export default function MobilePublishPage() {
 
   const handleStartJob = (target: string, platform: string) => {
     setStartingJob({ target, platform });
-    startJobMutation.mutate({ target, platform });
+    startJobMutation.mutate({ 
+      target, 
+      platform, 
+      stage: selectedStage, 
+      channel: selectedChannel 
+    });
   };
 
   const getStatusBadge = (status: string) => {

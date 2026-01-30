@@ -2148,4 +2148,449 @@ router.post('/publish/jobs/:id/run-now', mobilePublishStartLimiter, requireRole(
   }
 });
 
+// GET /api/mobile/publish/capabilities - Get publish capabilities and credential requirements
+router.get('/publish/capabilities', mobilePublishJobsListLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+
+    // Get configured credentials
+    const credentials = await prisma.mobilePublishCredential.findMany({
+      where: { tenantId },
+      select: { type: true, name: true, expiresAt: true }
+    });
+    const configuredTypes = credentials.map(c => c.type);
+
+    // Check for CI configuration (GitHub Actions)
+    const ciConfigured = !!(process.env.GITHUB_TOKEN && process.env.GITHUB_REPO);
+
+    // Define capability requirements per target
+    const capabilities = {
+      expo: {
+        name: 'Expo (EAS Build)',
+        localSupported: true,
+        ciSupported: true,
+        requiredCredentials: {
+          android: ['expo_token'],
+          ios: ['expo_token', 'apple_api_key'],
+          both: ['expo_token', 'apple_api_key']
+        },
+        missingCredentials: {
+          android: ['expo_token'].filter(c => !configuredTypes.includes(c)),
+          ios: ['expo_token', 'apple_api_key'].filter(c => !configuredTypes.includes(c)),
+          both: ['expo_token', 'apple_api_key'].filter(c => !configuredTypes.includes(c))
+        },
+        readyFor: {
+          android: configuredTypes.includes('expo_token'),
+          ios: configuredTypes.includes('expo_token') && configuredTypes.includes('apple_api_key'),
+          both: configuredTypes.includes('expo_token') && configuredTypes.includes('apple_api_key')
+        },
+        ciRequiredSecrets: ['EXPO_TOKEN']
+      },
+      flutter: {
+        name: 'Flutter (Native Build)',
+        localSupported: false, // Flutter SDK not typically available in Replit
+        ciSupported: true,
+        requiredCredentials: {
+          android: ['android_keystore'],
+          ios: ['apple_cert', 'apple_api_key'],
+          both: ['android_keystore', 'apple_cert', 'apple_api_key']
+        },
+        missingCredentials: {
+          android: ['android_keystore'].filter(c => !configuredTypes.includes(c)),
+          ios: ['apple_cert', 'apple_api_key'].filter(c => !configuredTypes.includes(c)),
+          both: ['android_keystore', 'apple_cert', 'apple_api_key'].filter(c => !configuredTypes.includes(c))
+        },
+        readyFor: {
+          android: configuredTypes.includes('android_keystore'),
+          ios: configuredTypes.includes('apple_cert') && configuredTypes.includes('apple_api_key'),
+          both: configuredTypes.includes('android_keystore') && configuredTypes.includes('apple_cert') && configuredTypes.includes('apple_api_key')
+        },
+        ciRequiredSecrets: ['ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD']
+      },
+      flutterflow: {
+        name: 'FlutterFlow',
+        localSupported: true, // Mode A generates instructions locally
+        ciSupported: true, // Mode B can use CI for actual builds
+        requiredCredentials: {
+          android: [],
+          ios: [],
+          both: []
+        },
+        missingCredentials: {
+          android: [] as string[],
+          ios: [] as string[],
+          both: [] as string[]
+        },
+        readyFor: {
+          android: true, // Mode A always works
+          ios: true,
+          both: true
+        },
+        ciRequiredSecrets: [] as string[],
+        note: 'Mode A generates publish instructions. Mode B requires Flutter SDK in CI.'
+      }
+    };
+
+    // CI environment info
+    const missingEnvVars = [
+      ...(!process.env.GITHUB_TOKEN ? ['GITHUB_TOKEN'] : []),
+      ...(!process.env.GITHUB_REPO ? ['GITHUB_REPO'] : [])
+    ];
+    
+    // Check callback configuration (optional but recommended)
+    const callbackConfigured = !!(process.env.CI_CALLBACK_TOKEN);
+    
+    const ciEnvironment = {
+      configured: ciConfigured,
+      provider: 'github_actions',
+      missingEnvVars,
+      callbackConfigured,
+      callbackMissingVars: [
+        ...(!process.env.CI_CALLBACK_TOKEN ? ['CI_CALLBACK_TOKEN'] : [])
+      ],
+      requiredGitHubSecrets: ['API_BASE_URL', 'CI_CALLBACK_TOKEN'],
+      workflowPath: '.github/workflows/mobile-publish.yml',
+      documentation: 'https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions'
+    };
+
+    res.json({
+      capabilities,
+      configuredCredentials: credentials.map(c => ({
+        type: c.type,
+        name: c.name,
+        expires: c.expiresAt,
+        valid: !c.expiresAt || new Date(c.expiresAt) > new Date()
+      })),
+      ciEnvironment,
+      recommendations: {
+        expo: capabilities.expo.readyFor.android ? 'Ready for Android builds' : 'Configure expo_token to enable builds',
+        flutter: ciConfigured ? 'Use CI runner for Flutter builds' : 'Configure GitHub Actions for Flutter builds',
+        flutterflow: 'Mode A (instructions) available. Mode B requires CI setup.'
+      }
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Capabilities check failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to get capabilities' });
+  }
+});
+
+// POST /api/mobile/publish/jobs/:id/trigger-ci - Trigger CI build for a job (admin only)
+router.post('/publish/jobs/:id/trigger-ci', mobilePublishStartLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const userId = req.userId!;
+    const { id } = req.params;
+
+    const job = await prisma.mobilePublishJob.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (job.status !== 'queued') {
+      return res.status(400).json({ 
+        error: 'Job must be in queued status to trigger CI',
+        currentStatus: job.status
+      });
+    }
+
+    // Check if target supports CI
+    const ciSupportedTargets = ['expo', 'flutter'];
+    if (!ciSupportedTargets.includes(job.target)) {
+      return res.status(400).json({
+        error: `Target '${job.target}' does not support CI builds`,
+        hint: job.target === 'flutterflow' ? 'FlutterFlow Mode A generates instructions locally. Use /run-now instead.' : undefined
+      });
+    }
+
+    // Check CI configuration
+    const githubToken = process.env.GITHUB_TOKEN;
+    const githubRepo = process.env.GITHUB_REPO;
+
+    if (!githubToken || !githubRepo) {
+      // Return missing secrets checklist
+      const missingSecrets: string[] = [];
+      if (!githubToken) missingSecrets.push('GITHUB_TOKEN');
+      if (!githubRepo) missingSecrets.push('GITHUB_REPO');
+
+      // Target-specific secrets needed
+      const targetSecrets: Record<string, string[]> = {
+        expo: ['EXPO_TOKEN'],
+        flutter: ['ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD']
+      };
+
+      return res.status(400).json({
+        error: 'CI not configured',
+        missingEnvVars: missingSecrets,
+        requiredGitHubSecrets: targetSecrets[job.target] || [],
+        setupInstructions: {
+          step1: 'Create a GitHub Personal Access Token with repo and workflow permissions',
+          step2: 'Set GITHUB_TOKEN environment variable in Replit Secrets',
+          step3: 'Set GITHUB_REPO to your repo in format "owner/repo"',
+          step4: `Add required secrets to GitHub repo settings: ${(targetSecrets[job.target] || []).join(', ')}`,
+          step5: 'Ensure .github/workflows/mobile-publish.yml exists in your repo'
+        }
+      });
+    }
+
+    // Update job to CI mode
+    await prisma.mobilePublishJob.update({
+      where: { id },
+      data: {
+        runMode: 'ci',
+        ciStatus: 'queued',
+        ciTriggeredAt: new Date(),
+        logs: (job.logs || '') + `\n[${new Date().toISOString()}] CI build triggered`
+      }
+    });
+
+    // Attempt to trigger GitHub Actions workflow
+    let ciRunUrl: string | null = null;
+    let ciRunId: string | null = null;
+    let triggerError: string | null = null;
+
+    try {
+      const [owner, repo] = githubRepo.split('/');
+      const workflowId = 'mobile-publish.yml';
+
+      const response = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflowId}/dispatches`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            ref: 'main',
+            inputs: {
+              jobId: id,
+              target: job.target,
+              platform: job.platform,
+              tenantId: tenantId,
+              stage: job.stage,
+              channel: job.channel
+            }
+          })
+        }
+      );
+
+      if (response.ok || response.status === 204) {
+        // Workflow dispatch doesn't return run ID immediately
+        // We'd need to poll for the run or use a webhook
+        ciRunUrl = `https://github.com/${githubRepo}/actions/workflows/${workflowId}`;
+        
+        await prisma.mobilePublishJob.update({
+          where: { id },
+          data: {
+            ciStatus: 'running',
+            ciRunUrl,
+            logs: (job.logs || '') + `\n[${new Date().toISOString()}] CI workflow dispatched successfully`
+          }
+        });
+      } else {
+        const errorBody = await response.text();
+        triggerError = `GitHub API error: ${response.status} - ${errorBody}`;
+        
+        await prisma.mobilePublishJob.update({
+          where: { id },
+          data: {
+            ciStatus: 'failed',
+            error: triggerError,
+            logs: (job.logs || '') + `\n[${new Date().toISOString()}] CI trigger failed: ${triggerError}`
+          }
+        });
+      }
+    } catch (err: any) {
+      triggerError = err.message;
+      await prisma.mobilePublishJob.update({
+        where: { id },
+        data: {
+          ciStatus: 'failed',
+          error: triggerError,
+          logs: (job.logs || '') + `\n[${new Date().toISOString()}] CI trigger error: ${triggerError}`
+        }
+      });
+    }
+
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: 'MOBILE_PUBLISH_CI_TRIGGERED',
+      entityType: 'mobile_publish_job',
+      entityId: id,
+      metadata: { target: job.target, platform: job.platform, ciRunUrl, error: triggerError }
+    });
+
+    if (triggerError) {
+      return res.status(500).json({
+        error: 'Failed to trigger CI',
+        details: triggerError,
+        jobId: id
+      });
+    }
+
+    res.json({
+      jobId: id,
+      triggered: true,
+      runMode: 'ci',
+      ciStatus: 'running',
+      ciRunUrl,
+      message: 'CI workflow dispatched. Check GitHub Actions for progress.'
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] CI trigger failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to trigger CI build' });
+  }
+});
+
+// GET /api/mobile/publish/jobs/:id/ci - Get CI status for a job (admin only)
+router.get('/publish/jobs/:id/ci', mobilePublishJobsListLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { id } = req.params;
+
+    const job = await prisma.mobilePublishJob.findFirst({
+      where: { id, tenantId },
+      include: {
+        artifacts: {
+          orderBy: { createdAt: 'desc' }
+        }
+      }
+    });
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // If not in CI mode, return not_configured
+    if (job.runMode !== 'ci') {
+      return res.json({
+        jobId: id,
+        ciStatus: 'not_configured',
+        runMode: job.runMode,
+        message: 'This job is running in local mode. Use /trigger-ci to switch to CI mode.'
+      });
+    }
+
+    // Extract last few log lines for preview
+    const logLines = (job.logs || '').split('\n');
+    const lastLogs = logLines.slice(-10).join('\n');
+
+    res.json({
+      jobId: id,
+      ciStatus: job.ciStatus || 'unknown',
+      ciRunUrl: job.ciRunUrl,
+      ciRunId: job.ciRunId,
+      ciTriggeredAt: job.ciTriggeredAt,
+      runMode: job.runMode,
+      status: job.status,
+      error: job.error,
+      lastLogs,
+      artifacts: job.artifacts.map(a => ({
+        id: a.id,
+        kind: a.kind,
+        url: a.url,
+        path: a.path,
+        size: a.size,
+        simulated: (a.metadata as any)?.simulated ?? false,
+        createdAt: a.createdAt
+      }))
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] CI status check failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to get CI status' });
+  }
+});
+
+// POST /api/mobile/publish/jobs/:id/artifacts/attach - Attach artifact to job (admin only)
+router.post('/publish/jobs/:id/artifacts/attach', mobilePublishStartLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const userId = req.userId!;
+    const { id } = req.params;
+    const { kind, url, path, size, checksum, expiresAt, metadata } = req.body;
+
+    const job = await prisma.mobilePublishJob.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Validate kind
+    const validKinds = ['apk', 'aab', 'ipa', 'eas_build_url', 'submit_receipt', 'logs', 'metadata', 'instructions', 'zip', 'ci_logs'];
+    if (!kind || !validKinds.includes(kind)) {
+      return res.status(400).json({
+        error: 'Invalid artifact kind',
+        validKinds
+      });
+    }
+
+    // Must have url or path
+    if (!url && !path) {
+      return res.status(400).json({
+        error: 'Artifact must have either url or path'
+      });
+    }
+
+    // Create artifact with simulated=false for manually attached artifacts
+    const artifact = await prisma.mobilePublishArtifact.create({
+      data: {
+        jobId: id,
+        kind,
+        url: url || null,
+        path: path || null,
+        size: size || null,
+        checksum: checksum || null,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        metadata: {
+          ...metadata,
+          simulated: false,
+          attachedBy: userId,
+          attachedAt: new Date().toISOString()
+        }
+      }
+    });
+
+    // Update job logs
+    await prisma.mobilePublishJob.update({
+      where: { id },
+      data: {
+        logs: (job.logs || '') + `\n[${new Date().toISOString()}] Artifact attached: ${kind} (${url || path})`
+      }
+    });
+
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: 'MOBILE_PUBLISH_ARTIFACT_ATTACHED',
+      entityType: 'mobile_publish_artifact',
+      entityId: artifact.id,
+      metadata: { jobId: id, kind, url, path, size }
+    });
+
+    res.json({
+      artifactId: artifact.id,
+      jobId: id,
+      kind,
+      url,
+      path,
+      size,
+      simulated: false,
+      createdAt: artifact.createdAt
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Artifact attach failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to attach artifact' });
+  }
+});
+
+// NOTE: CI callback endpoint is handled in index.ts to bypass auth middleware
+// POST /api/mobile/publish/jobs/:id/ci/callback - token-authenticated (X-CI-Token header)
+
 export const mobileRoutes = router;

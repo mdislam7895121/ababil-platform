@@ -54,6 +54,15 @@ The platform is a full-stack TypeScript monorepo.
   - **SLA Reports**: Support ticket metrics (created, solved, avg response, SLA breaches) and incident metrics.
   - **Legal Document Generator**: Auto-generate Terms of Service, Privacy Policy, and Refund Policy based on company info.
   - **UI**: `/dashboard/compliance` with 5-tab interface (Security, Access, Evidence, SLA, Legal).
+- **Mobile Publish Pipeline + CI Runner (Step 29-30)**: Complete mobile app build and store submission system:
+  - **Build Targets**: Expo (EAS Build), Flutter (native), FlutterFlow (Mode A: instructions, Mode B: CI)
+  - **Publish Jobs**: Atomic job claiming, queued/running/completed status, 72-hour expiry, proof pack generation
+  - **Credential Gating**: Encrypted storage for expo_token, apple_api_key, android_keystore, etc.
+  - **CI Integration**: GitHub Actions workflow dispatch with callback notifications for status updates
+  - **Artifact Management**: APK, AAB, IPA, EAS build URLs, store submission receipts
+  - **Admin Endpoints**: `/capabilities`, `/trigger-ci`, `/ci`, `/artifacts/attach`, `/run-now`, `/logs`
+  - **CI Callback**: Token-authenticated webhook for GitHub Actions to update job status
+  - **UI**: `/dashboard/mobile/publish` for job management and CI mode selection
 
 ## External Dependencies
 
