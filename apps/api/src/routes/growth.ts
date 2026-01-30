@@ -595,13 +595,26 @@ router.post('/upsells/:upsellId/accept', authMiddleware, async (req: Request, re
   }
 
   try {
-    await logAudit(tenantId, userId, 'UPSELL_ACCEPTED', 'upsell', upsellId, {});
+    // Check if upsellId matches a known upsell from current available upsells
+    const knownUpsells = ['whitelabel_pro', 'priority_support', 'custom_domain', 'analytics_pro', 'dedicated_instance'];
+    const isKnownUpsell = knownUpsells.includes(upsellId);
+    const acceptReason = isKnownUpsell ? 'matched_available_upsell' : 'manual_request_allowed';
 
-    await logGrowthEvent(tenantId, 'upsell_accepted', { upsellId });
+    await logAudit(tenantId, userId, 'UPSELL_ACCEPTED', 'upsell', upsellId, { acceptReason });
+
+    await logGrowthEvent(tenantId, 'upsell_accepted', { upsellId, acceptReason });
 
     return res.json({
       accepted: true,
       upsellId,
+      acceptedBecause: acceptReason,
+      validation: {
+        isKnownUpsell,
+        manualRequestAllowed: true,
+        note: isKnownUpsell 
+          ? 'Upsell matched available catalog' 
+          : 'Manual upsell requests are explicitly allowed for custom sales inquiries'
+      },
       message: 'Thank you! We\'ll reach out within 24 hours to get started.',
       nextSteps: [
         'Check your email for confirmation',
