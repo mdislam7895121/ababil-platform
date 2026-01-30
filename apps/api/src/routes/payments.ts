@@ -3,6 +3,7 @@ import { prisma } from '../index.js';
 import { AuthRequest, requireRole } from '../middleware/auth.js';
 import { paymentsManualLimiter, paymentsApproveLimiter } from '../middleware/rateLimit.js';
 import { createLedgerAccrualForInvoice } from './resellers.js';
+import { accruePartnerEarning } from './partners.js';
 
 const router = Router();
 
@@ -196,6 +197,7 @@ router.post('/manual/:id/approve', paymentsApproveLimiter, requireRole('owner', 
     });
     for (const inv of paidInvoices) {
       await createLedgerAccrualForInvoice(inv.id);
+      await accruePartnerEarning(inv.id, Number(inv.amount), inv.currency);
     }
 
     const planLimits: Record<string, number> = { pro: 1, business: 5 };
