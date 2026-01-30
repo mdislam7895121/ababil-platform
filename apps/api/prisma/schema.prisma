@@ -42,9 +42,10 @@ model Tenant {
   subscription     Subscription?
   manualPayments   ManualPayment[]
   invoices         Invoice[]
-  exportJobs       ExportJob[]
-  backupSnapshots  BackupSnapshot[]
-  pushTokens       PushToken[]
+  exportJobs         ExportJob[]
+  backupSnapshots    BackupSnapshot[]
+  pushTokens         PushToken[]
+  marketplaceInstalls MarketplaceInstall[]
 
   @@map("tenants")
 }
@@ -728,4 +729,50 @@ model NudgeDismissal {
   @@unique([tenantId, nudgeType])
   @@index([tenantId])
   @@map("nudge_dismissals")
+}
+
+model MarketplaceItem {
+  id           String   @id @default(uuid())
+  slug         String   @unique
+  name         String
+  type         String   @default("template")
+  priceCents   Int      @default(0) @map("price_cents")
+  currency     String   @default("USD")
+  isFree       Boolean  @default(true) @map("is_free")
+  shortDesc    String   @map("short_desc")
+  longDesc     String   @map("long_desc")
+  screenshots  String[] @default([])
+  tags         String[] @default([])
+  version      String   @default("1.0.0")
+  status       String   @default("draft")
+  requiredPlan String   @default("free") @map("required_plan")
+  installSpec  Json     @default("{}") @map("install_spec")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  installs MarketplaceInstall[]
+
+  @@index([type])
+  @@index([status])
+  @@index([tags])
+  @@map("marketplace_items")
+}
+
+model MarketplaceInstall {
+  id               String   @id @default(uuid())
+  tenantId         String   @map("tenant_id")
+  itemId           String   @map("item_id")
+  installedVersion String   @map("installed_version")
+  status           String   @default("installed")
+  installedAt      DateTime @default(now()) @map("installed_at")
+  lastError        String?  @map("last_error")
+  rollbackData     Json?    @map("rollback_data")
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item   MarketplaceItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([itemId])
+  @@index([status])
+  @@map("marketplace_installs")
 }

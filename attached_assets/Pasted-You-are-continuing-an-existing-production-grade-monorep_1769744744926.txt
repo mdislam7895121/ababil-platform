@@ -1,0 +1,125 @@
+You are continuing an existing production-grade monorepo:
+Digital Platform Factory.
+
+THIS IS STEP 21 — Marketplace / App Store (Templates + Add-ons).
+Non-breaking changes only. Do NOT refactor earlier steps (STEP 1–20).
+Proof-first is mandatory: no “done” without raw outputs, screenshots, smoke/verify, git status, and a proof report.
+
+==================================================
+GOAL
+==================================================
+Create a Marketplace where customers can:
+- Browse templates and add-ons
+- Install with one click into their tenant
+- Pay for paid items (use existing billing system)
+- Track installs, versions, and rollback safely
+
+==================================================
+SCOPE — BUILD ALL REQUIRED
+==================================================
+
+21.1 Marketplace Catalog (Backend)
+- Prisma models:
+  MarketplaceItem
+    - id, slug, name, type ("template" | "addon")
+    - priceCents, currency ("USD"|"BDT"), isFree
+    - shortDesc, longDesc, screenshots[], tags[]
+    - version, status ("draft"|"published"|"archived")
+    - requiredPlan ("free"|"pro"|"business")
+    - installSpec JSON (modules, connectors, presets, sampleData)
+  MarketplaceInstall
+    - id, tenantId, itemId, installedVersion
+    - status ("installed"|"failed"|"rolled_back")
+    - installedAt, lastError
+
+- Endpoints:
+  GET  /api/marketplace/items              (public list, filter by type/tag)
+  GET  /api/marketplace/items/:slug        (public detail)
+  POST /api/marketplace/items              (admin create)
+  POST /api/marketplace/items/:id/publish  (admin publish)
+  POST /api/marketplace/install/:slug      (owner/admin install to tenant)
+  GET  /api/marketplace/installs           (tenant installs list)
+  POST /api/marketplace/rollback/:installId (owner/admin rollback)
+
+Rules:
+- Paid items require active subscription and plan eligibility
+- Install must be transactional:
+  - if any step fails, rollback changes and mark install failed
+- Log all actions in audit:
+  MARKETPLACE_ITEM_PUBLISHED
+  MARKETPLACE_INSTALLED
+  MARKETPLACE_INSTALL_FAILED
+  MARKETPLACE_ROLLED_BACK
+
+==================================================
+
+21.2 Installer Engine (Backend)
+- Convert installSpec into actions:
+  - enable modules
+  - apply industry preset labels
+  - configure connectors (placeholders if secrets missing)
+  - add sample data (clearly flagged as Demo)
+- Must reuse existing module/preset/connector mechanisms from prior steps
+- Must be idempotent:
+  installing same item/version twice should not duplicate data
+
+==================================================
+
+21.3 Web UI (Frontend)
+Pages:
+- /marketplace (public marketing browse page)
+- /marketplace/[slug] (public detail)
+- /dashboard/marketplace (authenticated tenant view)
+  - list items with “Install” buttons
+  - show installed items + version
+  - rollback button for last install
+
+UX Requirements:
+- Show plan requirements clearly
+- Show “Already installed” state
+- Show failure reason if install fails
+- Never block core app if marketplace fails
+
+==================================================
+
+21.4 Payments Integration
+- For paid items:
+  - reuse existing Stripe/manual payment flows
+  - simplest: charge via “addon invoice” record or a one-time checkout session
+- Record revenue split if reseller mode active (reuse reseller commission logic)
+
+==================================================
+SECURITY
+==================================================
+- Public endpoints read-only
+- Admin-only for publishing items
+- Owner/admin only for install/rollback
+- Tenant isolation enforced
+- Rate limit install endpoints
+
+==================================================
+PROOF REQUIREMENTS (MANDATORY)
+==================================================
+A) Raw curl outputs:
+- list items
+- item detail
+- publish item (admin)
+- install item (owner/admin)
+- installs list
+- rollback install
+
+B) UI screenshots:
+- /marketplace browse
+- /marketplace/[slug] detail
+- /dashboard/marketplace showing install + installed badge
+
+C) Regression:
+- ./scripts/smoke.sh (full)
+- ./scripts/verify.sh (last ~40 lines)
+
+D) Artifacts:
+- reports/step21-proof.md (create)
+- git status + changed files list
+
+STOP after proof. Do NOT start STEP 22.
+BEGIN STEP 21 now.
