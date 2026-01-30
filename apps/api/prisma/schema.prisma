@@ -776,3 +776,78 @@ model MarketplaceInstall {
   @@index([status])
   @@map("marketplace_installs")
 }
+
+model PartnerAccount {
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  status             String   @default("pending") // pending|approved|suspended
+  displayName        String   @map("display_name")
+  contactEmail       String   @map("contact_email")
+  country            String   @default("US")
+  payoutPreferences  Json     @default("{}") @map("payout_preferences")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  listings PartnerListing[]
+  earnings PartnerEarning[]
+  payouts  PartnerPayout[]
+
+  @@unique([tenantId])
+  @@index([status])
+  @@map("partner_accounts")
+}
+
+model PartnerListing {
+  id                String   @id @default(uuid())
+  partnerId         String   @map("partner_id")
+  marketplaceItemId String   @unique @map("marketplace_item_id")
+  commissionType    String   @default("percent") @map("commission_type") // percent|fixed
+  commissionValue   Decimal  @default(20) @map("commission_value") @db.Decimal(10, 2)
+  status            String   @default("active") // active|paused
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  partner PartnerAccount @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId])
+  @@index([status])
+  @@map("partner_listings")
+}
+
+model PartnerEarning {
+  id               String   @id @default(uuid())
+  partnerId        String   @map("partner_id")
+  invoiceId        String   @map("invoice_id")
+  currency         String   @default("USD")
+  grossAmount      Decimal  @map("gross_amount") @db.Decimal(12, 2)
+  commissionAmount Decimal  @map("commission_amount") @db.Decimal(12, 2)
+  partnerNet       Decimal  @map("partner_net") @db.Decimal(12, 2)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  partner PartnerAccount @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, invoiceId])
+  @@index([partnerId])
+  @@index([createdAt])
+  @@map("partner_earnings")
+}
+
+model PartnerPayout {
+  id            String    @id @default(uuid())
+  partnerId     String    @map("partner_id")
+  currency      String    @default("USD")
+  amount        Decimal   @db.Decimal(12, 2)
+  status        String    @default("owed") // owed|approved|paid
+  payoutMethod  String?   @map("payout_method") // bank|bkash|stripe|paypal
+  payoutDetails Json?     @map("payout_details")
+  approvedAt    DateTime? @map("approved_at")
+  paidAt        DateTime? @map("paid_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  partner PartnerAccount @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId])
+  @@index([status])
+  @@map("partner_payouts")
+}

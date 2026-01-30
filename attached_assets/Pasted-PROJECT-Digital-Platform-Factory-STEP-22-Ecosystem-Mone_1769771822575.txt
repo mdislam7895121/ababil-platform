@@ -1,0 +1,121 @@
+PROJECT: Digital Platform Factory
+STEP 22: Ecosystem Monetization + Partner Programs
+MODE: Proof-first, non-breaking, minimal diffs, no refactors.
+
+GOAL
+Create a Partner/Vendor ecosystem so the Marketplace becomes a revenue engine:
+- Partners publish items (templates/add-ons/services)
+- Platform takes commission
+- Partners can see earnings
+- Admin can approve partners, control payouts
+- All actions audited
+- Must not break existing Marketplace (STEP 21) and Billing/Reseller systems.
+
+SCOPE RULES
+1) Do NOT modify existing working flows except to integrate safely (additive changes only).
+2) Use Prisma migrations; keep schema changes small and explicit.
+3) Every new endpoint must have RBAC + rate limit + tenant isolation where relevant.
+4) Produce full raw proof pack (curl + db + scripts) before claiming complete.
+
+DELIVERABLES (SERIAL)
+
+22.1 DATABASE MODELS (Prisma)
+Add models (additive only):
+- PartnerAccount
+  - id, tenantId, status(pending/approved/suspended), displayName, contactEmail, country, payoutPreferences(JSON), createdAt
+- PartnerListing
+  - id, partnerId, marketplaceItemId, commissionType(percent/fixed), commissionValue, status(active/paused), createdAt
+- PartnerEarning
+  - id, partnerId, invoiceId, currency, grossAmount, commissionAmount, partnerNet, createdAt
+- PartnerPayout
+  - id, partnerId, currency, amount, status(owed/approved/paid), payoutMethod, payoutDetails(JSON), approvedAt, paidAt, createdAt
+
+Notes:
+- Reuse existing Invoice model and MarketplaceInstall/Item where possible (do not duplicate).
+- Earnings must be created when an invoice becomes PAID (Stripe or manual approval path).
+
+22.2 BACKEND API (Endpoints)
+Create a new routes file: apps/api/src/routes/partners.ts
+Endpoints (minimum):
+PUBLIC/Authenticated:
+- POST /api/partners/apply (owner/admin) -> creates PartnerAccount status=pending
+- GET  /api/partners/me (owner/admin) -> view own partner account + status
+ADMIN ONLY:
+- GET  /api/partners (admin/owner) -> list partner accounts with filters
+- POST /api/partners/:id/approve (admin/owner)
+- POST /api/partners/:id/suspend (admin/owner)
+LISTINGS:
+- POST /api/partners/:partnerId/listings (admin/owner OR partner self if approved) -> attach marketplaceItemId + commission rules
+- GET  /api/partners/:partnerId/listings
+EARNINGS:
+- GET  /api/partners/:partnerId/earnings?from=&to=
+PAYOUTS:
+- POST /api/partners/:partnerId/payouts/generate (admin/owner) -> create owed payout from earnings not yet paid
+- POST /api/partners/:partnerId/payouts/:payoutId/approve (admin/owner)
+- POST /api/partners/:partnerId/payouts/:payoutId/mark-paid (admin/owner)
+- GET  /api/partners/:partnerId/payouts
+Partner self-service shortcuts:
+- GET /api/partners/my/earnings
+- GET /api/partners/my/payouts
+(Important) Route ordering: put /my/* routes before /:id routes.
+
+22.3 INTEGRATION HOOK (Earnings Accrual)
+Find the single “invoice paid” moment in existing code:
+- Stripe webhook paid event OR manual payment approval path.
+Add an additive hook:
+- If invoice has partner listing association, create PartnerEarning row.
+- Commission calc:
+  - percent: commissionAmount = gross * (value/100)
+  - fixed: commissionAmount = value
+  - partnerNet = gross - commissionAmount (or store both commission + partnerNet)
+- Must be idempotent: do NOT create duplicate earnings for same invoiceId+partnerId.
+
+Association rule:
+- MarketplaceItem may have an optional partnerListing reference OR a metadata field that maps to partner listing.
+Choose the least invasive approach:
+- Add partnerListingId nullable to MarketplaceItem OR add PartnerListing with marketplaceItemId unique.
+Prefer PartnerListing.marketplaceItemId unique.
+
+22.4 RATE LIMIT + AUDIT
+- Apply tenant+user rate limiting to apply/listing/payout creation endpoints.
+- Audit events:
+  - PARTNER_APPLIED
+  - PARTNER_APPROVED / PARTNER_SUSPENDED
+  - PARTNER_LISTING_CREATED / UPDATED
+  - PARTNER_EARNING_ACCRUED
+  - PARTNER_PAYOUT_GENERATED / APPROVED / PAID
+
+22.5 FRONTEND PAGES (Minimal but usable)
+Add pages:
+- /dashboard/partners (partner self-service: status, listings, earnings, payouts)
+- /dashboard/admin/partners (admin management: approve/suspend, view partners)
+Keep UI simple like existing dashboard style.
+
+22.6 SCRIPTS + PROOF
+Update scripts/verify.sh:
+- Add checks for partner endpoints (smoke-level)
+Create reports/step22-proof.md with raw evidence.
+
+REQUIRED PROOF PACK (MUST INCLUDE)
+A) Curl proofs for each endpoint group:
+- apply -> approve -> create listing -> simulate invoice paid -> earnings created -> generate payout -> approve -> mark paid
+B) DB proof:
+- show PartnerEarning rows for paid invoice
+- show PartnerPayout status transitions
+C) RBAC proof:
+- staff token gets 403 on admin endpoints
+D) Regression:
+- ./scripts/smoke.sh full output
+- ./scripts/verify.sh last ~40 lines
+E) Artifacts:
+- first 40 lines of reports/step22-proof.md
+- git status + changed files
+
+DEFINITION OF DONE
+- No existing Marketplace/Billing/Reseller flows broken (smoke PASS)
+- Partner earnings accrue exactly once per paid invoice (idempotent)
+- Payout workflow works end-to-end with audit logs
+- Proof pack complete with raw outputs
+
+STOP AFTER STEP 22 PROOF PACK.
+Do NOT start STEP 23.
