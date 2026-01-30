@@ -58,25 +58,40 @@ async function pollForJobs(): Promise<void> {
 }
 
 async function claimNextJob(): Promise<any | null> {
-  return await prisma.$transaction(async (tx) => {
-    const job = await tx.mobilePublishJob.findFirst({
-      where: { status: 'queued' },
-      orderBy: { createdAt: 'asc' },
-    });
+  // Use atomic updateMany with status check to prevent race conditions
+  const candidates = await prisma.mobilePublishJob.findMany({
+    where: { status: 'queued' },
+    orderBy: { createdAt: 'asc' },
+    take: 5,
+  });
 
-    if (!job) return null;
-
-    await tx.mobilePublishJob.update({
-      where: { id: job.id },
+  for (const candidate of candidates) {
+    // Atomic claim: only update if status is still queued
+    const result = await prisma.mobilePublishJob.updateMany({
+      where: { 
+        id: candidate.id,
+        status: 'queued', // Atomic check prevents double-claim
+      },
       data: {
         status: 'running',
         startedAt: new Date(),
-        logs: appendLog('', `[${new Date().toISOString()}] Job claimed by runner`),
       },
     });
 
-    return { ...job, status: 'running' };
-  });
+    if (result.count > 0) {
+      // Successfully claimed - update logs and return
+      const claimed = await prisma.mobilePublishJob.update({
+        where: { id: candidate.id },
+        data: {
+          logs: appendLog('', `[${new Date().toISOString()}] Job claimed by runner`),
+        },
+      });
+      return claimed;
+    }
+    // If count is 0, another runner claimed it - try next candidate
+  }
+
+  return null;
 }
 
 async function executeJob(job: any): Promise<void> {

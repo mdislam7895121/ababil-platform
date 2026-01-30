@@ -58,14 +58,26 @@ interface CredentialsStatusResponse {
   };
 }
 
+interface PublishArtifact {
+  id: string;
+  kind: string;
+  path?: string;
+  url?: string;
+  size?: number;
+  expiresAt?: string;
+}
+
 interface PublishJob {
   id: string;
   target: string;
   platform: string;
+  stage?: string;
+  provider?: string;
+  channel?: string;
   status: string;
   error?: string;
   logs?: string;
-  artifacts: Array<{ id: string; kind: string; size?: number }>;
+  artifacts: PublishArtifact[];
   startedAt?: string;
   completedAt?: string;
   expiresAt: string;
@@ -607,23 +619,36 @@ export default function MobilePublishPage() {
                 {jobsData?.jobs.map((job) => (
                   <Card key={job.id} data-testid={`job-card-${job.id}`}>
                     <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
                         <CardTitle className="text-lg flex items-center gap-2">
                           {job.target === "expo" && <SiExpo className="h-5 w-5" />}
                           {job.target === "flutter" && <SiFlutter className="h-5 w-5" />}
                           {job.target === "flutterflow" && <SiFlutter className="h-5 w-5 text-blue-400" />}
                           {job.target.charAt(0).toUpperCase() + job.target.slice(1)} - {job.platform}
                         </CardTitle>
-                        {getStatusBadge(job.status)}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {job.stage && (
+                            <Badge variant="outline" className="capitalize" data-testid={`badge-stage-${job.id}`}>
+                              {job.stage}
+                            </Badge>
+                          )}
+                          {job.channel && (
+                            <Badge variant="secondary" className="capitalize" data-testid={`badge-channel-${job.id}`}>
+                              {job.channel}
+                            </Badge>
+                          )}
+                          <span data-testid={`badge-status-${job.id}`}>{getStatusBadge(job.status)}</span>
+                        </div>
                       </div>
-                      <CardDescription>
-                        Created: {new Date(job.createdAt).toLocaleString()}
-                        {job.completedAt && ` • Completed: ${new Date(job.completedAt).toLocaleString()}`}
+                      <CardDescription className="flex flex-wrap gap-2">
+                        <span>Created: {new Date(job.createdAt).toLocaleString()}</span>
+                        {job.completedAt && <span>• Completed: {new Date(job.completedAt).toLocaleString()}</span>}
+                        {job.provider && <span>• Provider: {job.provider}</span>}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-3">
                       {job.error && (
-                        <Alert variant="destructive" className="mb-4">
+                        <Alert variant="destructive">
                           <AlertCircle className="h-4 w-4" />
                           <AlertDescription>{job.error}</AlertDescription>
                         </Alert>
@@ -633,13 +658,42 @@ export default function MobilePublishPage() {
                         Expires: {new Date(job.expiresAt).toLocaleString()}
                       </div>
                       {job.artifacts.length > 0 && (
-                        <div className="mt-2">
-                          <span className="text-sm font-medium">Artifacts: </span>
-                          {job.artifacts.map((a) => (
-                            <Badge key={a.id} variant="outline" className="mr-1">
-                              {a.kind}
-                            </Badge>
-                          ))}
+                        <div className="space-y-2">
+                          <span className="text-sm font-medium">Artifacts:</span>
+                          <div className="grid gap-2">
+                            {job.artifacts.map((a) => (
+                              <div 
+                                key={a.id} 
+                                className="flex items-center justify-between p-2 border rounded-md text-sm"
+                                data-testid={`artifact-row-${a.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <FileText className="h-4 w-4" />
+                                  <span className="font-medium" data-testid={`text-artifact-kind-${a.id}`}>{a.kind}</span>
+                                  {a.size && (
+                                    <span className="text-muted-foreground" data-testid={`text-artifact-size-${a.id}`}>
+                                      ({(a.size / 1024 / 1024).toFixed(2)} MB)
+                                    </span>
+                                  )}
+                                  {a.expiresAt && (
+                                    <span className="text-xs text-muted-foreground" data-testid={`text-artifact-expiry-${a.id}`}>
+                                      Expires: {new Date(a.expiresAt).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
+                                {a.url && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => window.open(a.url, "_blank")}
+                                    data-testid={`button-artifact-open-${a.id}`}
+                                  >
+                                    Open
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </CardContent>
