@@ -38,46 +38,143 @@ export const API_SCOPES = {
 
 export type ApiScope = keyof typeof API_SCOPES;
 
-// Route to scope mapping
+// Route to scope mapping - comprehensive coverage of all API endpoints
 export const ROUTE_SCOPES: Record<string, ApiScope[]> = {
-  // Read operations
+  // === READ OPERATIONS (require 'read' scope) ===
   'GET:/api/audit-logs': ['read'],
   'GET:/api/dashboard': ['read'],
   'GET:/api/modules': ['read'],
   'GET:/api/connectors': ['read'],
   'GET:/api/api-keys': ['read'],
+  'GET:/api/api-keys/scopes': ['read'],
   'GET:/api/users': ['read'],
   'GET:/api/builder/draft': ['read'],
   'GET:/api/billing': ['read'],
+  'GET:/api/billing/invoices': ['read'],
+  'GET:/api/billing/usage': ['read'],
   'GET:/api/marketplace': ['read'],
+  'GET:/api/marketplace/apps': ['read'],
+  'GET:/api/marketplace/categories': ['read'],
   'GET:/api/support/tickets': ['read'],
   'GET:/api/analytics': ['read'],
+  'GET:/api/costs': ['read'],
+  'GET:/api/costs/breakdown': ['read'],
+  'GET:/api/revenue': ['read'],
+  'GET:/api/revenue/metrics': ['read'],
+  'GET:/api/payments': ['read'],
+  'GET:/api/invoices': ['read'],
+  'GET:/api/tenants': ['read'],
+  'GET:/api/backups': ['read'],
+  'GET:/api/backups/snapshots': ['read'],
+  'GET:/api/exports': ['read'],
+  'GET:/api/monitoring': ['read'],
+  'GET:/api/monitoring/incidents': ['read'],
+  'GET:/api/monitoring/alerts': ['read'],
+  'GET:/api/reports': ['read'],
+  'GET:/api/reports/sla': ['read'],
+  'GET:/api/evidence': ['read'],
+  'GET:/api/evidence/exports': ['read'],
+  'GET:/api/security-center': ['read'],
+  'GET:/api/security-center/settings': ['read'],
+  'GET:/api/security-center/permissions-matrix': ['read'],
+  'GET:/api/access-review': ['read'],
+  'GET:/api/access-review/summary': ['read'],
+  'GET:/api/legal/templates': ['read'],
+  'GET:/api/growth': ['read'],
+  'GET:/api/growth/analytics': ['read'],
+  'GET:/api/success': ['read'],
+  'GET:/api/reseller': ['read'],
+  'GET:/api/reseller/payouts': ['read'],
+  'GET:/api/partners': ['read'],
+  'GET:/api/deploy': ['read'],
+  'GET:/api/deploy/status': ['read'],
+  'GET:/api/preview': ['read'],
+  'GET:/api/checklist': ['read'],
+  'GET:/api/onboarding': ['read'],
+  'GET:/api/env': ['read'],
   
-  // Builder write operations
+  // === BUILDER OPERATIONS (require 'builder:write' scope) ===
   'POST:/api/builder/draft': ['builder:write'],
   'PUT:/api/builder/draft': ['builder:write'],
   'PATCH:/api/builder/draft': ['builder:write'],
   'DELETE:/api/builder/draft': ['builder:write'],
   'POST:/api/builder/generate': ['builder:write'],
+  'POST:/api/builder/ai-generate': ['builder:write'],
+  'POST:/api/deploy': ['builder:write'],
+  'POST:/api/deploy/publish': ['builder:write'],
+  'POST:/api/preview': ['builder:write'],
+  'POST:/api/preview/start': ['builder:write'],
+  'POST:/api/modules': ['builder:write'],
+  'PATCH:/api/modules': ['builder:write'],
+  'POST:/api/connectors': ['builder:write'],
+  'PATCH:/api/connectors': ['builder:write'],
+  'DELETE:/api/connectors': ['builder:write'],
+  'POST:/api/env': ['builder:write'],
+  'PUT:/api/env': ['builder:write'],
+  'DELETE:/api/env': ['builder:write'],
   
-  // Billing operations
+  // === BILLING OPERATIONS (require 'billing:write' scope) ===
   'POST:/api/billing/checkout': ['billing:write'],
   'POST:/api/billing/subscribe': ['billing:write'],
   'POST:/api/billing/cancel': ['billing:write'],
+  'POST:/api/billing/upgrade': ['billing:write'],
+  'POST:/api/payments': ['billing:write'],
+  'POST:/api/payments/refund': ['billing:write'],
+  'POST:/api/invoices': ['billing:write'],
   
-  // Marketplace operations
+  // === MARKETPLACE OPERATIONS (require 'marketplace:install' scope) ===
   'POST:/api/marketplace/install': ['marketplace:install'],
   'DELETE:/api/marketplace/uninstall': ['marketplace:install'],
+  'POST:/api/marketplace/apps': ['marketplace:install'],
+  'PATCH:/api/marketplace/apps': ['marketplace:install'],
   
-  // Support operations
+  // === SUPPORT OPERATIONS (require 'support:write' scope) ===
   'POST:/api/support/tickets': ['support:write'],
   'PUT:/api/support/tickets': ['support:write'],
+  'PATCH:/api/support/tickets': ['support:write'],
   
-  // Admin operations
+  // === ADMIN OPERATIONS (require 'admin:write' scope) ===
   'POST:/api/security-center/settings': ['admin:write'],
+  'PUT:/api/security-center/settings': ['admin:write'],
   'POST:/api/access-review': ['admin:write'],
   'POST:/api/users': ['admin:write'],
+  'PUT:/api/users': ['admin:write'],
+  'PATCH:/api/users': ['admin:write'],
   'DELETE:/api/users': ['admin:write'],
+  'GET:/api/users/': ['read'],  // /api/users/:id
+  'PUT:/api/users/': ['admin:write'],
+  'PATCH:/api/users/': ['admin:write'],
+  'DELETE:/api/users/': ['admin:write'],
+  'POST:/api/api-keys': ['admin:write'],
+  'PATCH:/api/api-keys': ['admin:write'],
+  'DELETE:/api/api-keys': ['admin:write'],
+  'GET:/api/api-keys/': ['read'],  // /api/api-keys/:id
+  'PATCH:/api/api-keys/': ['admin:write'],
+  'DELETE:/api/api-keys/': ['admin:write'],
+  'POST:/api/api-keys/rotate': ['admin:write'],  // /api/api-keys/:id/rotate
+  'POST:/api/api-keys/revoke': ['admin:write'],  // /api/api-keys/:id/revoke
+  'PATCH:/api/api-keys/scopes': ['admin:write'], // /api/api-keys/:id/scopes
+  'POST:/api/tenants': ['admin:write'],
+  'PUT:/api/tenants': ['admin:write'],
+  'PATCH:/api/tenants': ['admin:write'],
+  'DELETE:/api/tenants': ['admin:write'],
+  'POST:/api/backups': ['admin:write'],
+  'POST:/api/backups/snapshot': ['admin:write'],
+  'POST:/api/backups/restore': ['admin:write'],
+  'POST:/api/exports': ['admin:write'],
+  'POST:/api/exports/generate': ['admin:write'],
+  'DELETE:/api/exports': ['admin:write'],
+  'POST:/api/evidence/exports': ['admin:write'],
+  'POST:/api/legal/generate': ['admin:write'],
+  'POST:/api/monitoring/alerts': ['admin:write'],
+  'PATCH:/api/monitoring/alerts': ['admin:write'],
+  'POST:/api/monitoring/incidents': ['admin:write'],
+  'PATCH:/api/monitoring/incidents': ['admin:write'],
+  'POST:/api/reseller': ['admin:write'],
+  'POST:/api/reseller/payouts': ['admin:write'],
+  'POST:/api/partners': ['admin:write'],
+  'PATCH:/api/partners': ['admin:write'],
+  'DELETE:/api/partners': ['admin:write'],
 };
 
 function getClientIp(req: Request): string {
@@ -301,20 +398,61 @@ export async function scopeMiddleware(req: AuthRequest, res: Response, next: Nex
     return next();
   }
   
-  // Build route key for lookup
-  const routeKey = `${req.method}:${req.baseUrl}${req.path}`.replace(/\/[a-f0-9-]{36}/gi, '');
+  // Build route key for lookup - normalize by removing UUIDs and cleaning double slashes
+  const rawPath = `${req.method}:${req.baseUrl}${req.path}`;
+  const routeKey = rawPath
+    .replace(/\/[a-f0-9-]{36}/gi, '') // Remove UUID segments
+    .replace(/\/\//g, '/');           // Clean double slashes
   
   // Check if route has scope requirements
   const requiredScopes = ROUTE_SCOPES[routeKey];
   
-  // If no specific scopes defined, default to read for GET, admin:write for others
+  // If no specific scopes defined, apply DEFAULT-DENY policy:
+  // - GET requests require 'read' scope
+  // - All other methods (POST, PUT, PATCH, DELETE) require 'admin:write' scope
   if (!requiredScopes) {
     if (req.method === 'GET') {
       if (!req.apiKey.scopes.includes('read')) {
+        await logAudit({
+          tenantId: req.tenantId!,
+          actorUserId: null,
+          action: 'API_KEY_SCOPE_DENIED',
+          entityType: 'api_key',
+          entityId: req.apiKey.id,
+          metadata: { 
+            requiredScopes: ['read'], 
+            keyScopes: req.apiKey.scopes,
+            endpoint: routeKey,
+            policy: 'default-deny-unmapped'
+          }
+        });
         return res.status(403).json({ 
           error: 'Insufficient scope',
           required: ['read'],
           provided: req.apiKey.scopes
+        });
+      }
+    } else {
+      // Non-GET methods on unmapped routes require admin:write (default-deny)
+      if (!req.apiKey.scopes.includes('admin:write')) {
+        await logAudit({
+          tenantId: req.tenantId!,
+          actorUserId: null,
+          action: 'API_KEY_SCOPE_DENIED',
+          entityType: 'api_key',
+          entityId: req.apiKey.id,
+          metadata: { 
+            requiredScopes: ['admin:write'], 
+            keyScopes: req.apiKey.scopes,
+            endpoint: routeKey,
+            policy: 'default-deny-unmapped'
+          }
+        });
+        return res.status(403).json({ 
+          error: 'Insufficient scope',
+          required: ['admin:write'],
+          provided: req.apiKey.scopes,
+          note: 'Unmapped write endpoint requires admin:write scope'
         });
       }
     }
