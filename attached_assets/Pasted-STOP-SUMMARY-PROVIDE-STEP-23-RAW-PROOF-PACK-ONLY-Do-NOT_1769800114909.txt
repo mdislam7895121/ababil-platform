@@ -1,0 +1,142 @@
+STOP SUMMARY. PROVIDE STEP 23 RAW PROOF PACK ONLY.
+Do NOT start STEP 24.
+
+I need the full evidence exactly in this order.
+
+============================================================
+A) EVIDENCE EXPORT PROOF (RAW)
+============================================================
+A1) Create export (audit, csv):
+curl -s -X POST http://localhost:5000/api/evidence/exports \
+-H "Authorization: Bearer $OWNER_TOKEN" \
+-H "x-tenant-id: $TENANT_ID" \
+-H "Content-Type: application/json" \
+-d '{"type":"audit","format":"csv","fromDate":"2026-01-01","toDate":"2026-12-31"}' | tee /tmp/ev_create.json
+
+Paste output.
+
+A2) Get job status:
+export JOB_ID=$(cat /tmp/ev_create.json | jq -r '.exportJobId')
+curl -s http://localhost:5000/api/evidence/exports/$JOB_ID \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID"
+
+Paste output.
+
+A3) Download (show headers + first 20 lines only):
+curl -i http://localhost:5000/api/evidence/exports/$JOB_ID/download \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID" | head -n 60
+
+Must show Content-Type and CSV body preview.
+
+A4) RBAC denial (staff token):
+curl -i http://localhost:5000/api/evidence/exports \
+-H "Authorization: Bearer $STAFF_TOKEN" -H "x-tenant-id: $TENANT_ID" | head -n 40
+
+============================================================
+B) SECURITY CENTER PROOF (RAW)
+============================================================
+B1) GET settings:
+curl -s http://localhost:5000/api/security-center/settings \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID"
+
+B2) POST update settings:
+curl -s -X POST http://localhost:5000/api/security-center/settings \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID" \
+-H "Content-Type: application/json" \
+-d '{"dataRetentionDays":90,"piiRedactionEnabled":true,"require2faForAdmins":false}'
+
+B3) Permissions matrix:
+curl -s http://localhost:5000/api/security-center/permissions-matrix \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID"
+
+Paste all three outputs.
+
+============================================================
+C) ACCESS REVIEW PROOF (RAW)
+============================================================
+C1) Summary:
+curl -s http://localhost:5000/api/access-review/summary \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID"
+
+C2) API key rotate (use a real API key id):
+curl -s -X POST http://localhost:5000/api/api-keys \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID" \
+-H "Content-Type: application/json" \
+-d '{"name":"step23-accessreview-rotate-test"}' | tee /tmp/key.json
+
+export KEY_ID=$(cat /tmp/key.json | jq -r '.key.id // .id')
+export OLD_KEY=$(cat /tmp/key.json | jq -r '.key.key // .key')
+
+Rotate:
+curl -s -X POST http://localhost:5000/api/access-review/rotate-api-key/$KEY_ID \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID" | tee /tmp/key_rot.json
+
+export NEW_KEY=$(cat /tmp/key_rot.json | jq -r '.key // .apiKey // .newKey // empty')
+
+Now prove old key fails + new key succeeds using an API-key protected endpoint.
+Pick one endpoint that accepts API keys (if none exist, prove via /api/api-keys list with Bearer token only and state that API key auth is not implemented).
+If API key auth exists:
+- OLD key request -> 401/403
+- NEW key request -> 200
+
+Paste outputs.
+
+C3) Disable user proof:
+Create a new user + membership (or use an existing non-owner userId), then:
+curl -s -X POST http://localhost:5000/api/access-review/disable-user/$USER_ID \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID"
+
+Then attempt login or access with that user and show it fails (401/403). Paste outputs.
+
+============================================================
+D) SLA REPORTS PROOF (RAW)
+============================================================
+D1) GET SLA report:
+curl -s "http://localhost:5000/api/reports/sla?from=2026-01-01&to=2026-12-31" \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID"
+
+D2) Export (csv or json):
+curl -i "http://localhost:5000/api/reports/sla/export?from=2026-01-01&to=2026-12-31&format=csv" \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID" | head -n 60
+
+============================================================
+E) LEGAL DOC GENERATOR PROOF (RAW)
+============================================================
+E1) Generate Terms (show only first 30 lines to avoid huge output):
+curl -s -X POST http://localhost:5000/api/legal/generate \
+-H "Authorization: Bearer $OWNER_TOKEN" -H "x-tenant-id: $TENANT_ID" \
+-H "Content-Type: application/json" \
+-d '{"docType":"terms","companyName":"Test Company","country":"US","supportEmail":"support@test.com","billingModel":"subscription","whiteLabel":false}' \
+| (python - <<'PY'
+import sys, json
+data=json.load(sys.stdin)
+md=data.get("markdown","")
+print("\n".join(md.splitlines()[:30]))
+PY
+)
+
+============================================================
+F) CLEANUP JOB PROOF (RAW)
+============================================================
+Show the cleanupEvidenceExports job exists and works:
+1) GET jobs status to show it is registered
+2) Manually trigger it (POST /api/jobs/run/<name>)
+3) Demonstrate at least one expired export was cleaned OR show it runs and reports 0 cleaned with a clear details object.
+
+Paste outputs.
+
+============================================================
+G) REGRESSION PROOF
+============================================================
+G1) ./scripts/smoke.sh (full output)
+G2) ./scripts/verify.sh (last ~50 lines)
+
+============================================================
+H) ARTIFACTS + GIT STATUS
+============================================================
+H1) Paste first 60 lines of reports/step23-proof.md
+H2) List changed files:
+git diff --name-only
+H3) git status
+
+STOP.
