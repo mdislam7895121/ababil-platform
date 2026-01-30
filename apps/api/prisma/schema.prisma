@@ -46,6 +46,9 @@ model Tenant {
   backupSnapshots    BackupSnapshot[]
   pushTokens         PushToken[]
   marketplaceInstalls MarketplaceInstall[]
+  evidenceExportJobs EvidenceExportJob[]
+  securitySettings   TenantSecuritySettings?
+  legalDocs          LegalDoc[]
 
   @@map("tenants")
 }
@@ -850,4 +853,61 @@ model PartnerPayout {
   @@index([partnerId])
   @@index([status])
   @@map("partner_payouts")
+}
+
+// ============================================
+// STEP 23: Enterprise Compliance + Trust Pack
+// ============================================
+
+model EvidenceExportJob {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  requestedByUserId String  @map("requested_by_user_id")
+  type            String    // audit|support|incidents|access_review
+  format          String    // json|csv
+  status          String    @default("pending") // pending|ready|failed|expired
+  fromDate        DateTime? @map("from_date")
+  toDate          DateTime? @map("to_date")
+  filePath        String?   @map("file_path")
+  fileSize        Int?      @map("file_size")
+  expiresAt       DateTime? @map("expires_at")
+  errorMessage    String?   @map("error_message")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("evidence_export_jobs")
+}
+
+model TenantSecuritySettings {
+  id                   String   @id @default(uuid())
+  tenantId             String   @unique @map("tenant_id")
+  dataRetentionDays    Int      @default(90) @map("data_retention_days")
+  piiRedactionEnabled  Boolean  @default(true) @map("pii_redaction_enabled")
+  require2faForAdmins  Boolean  @default(false) @map("require_2fa_for_admins")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_security_settings")
+}
+
+model LegalDoc {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  docType   String   @map("doc_type") // terms|privacy|refunds
+  html      String
+  markdown  String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([docType])
+  @@map("legal_docs")
 }

@@ -1,0 +1,197 @@
+PROJECT: Digital Platform Factory
+STEP 23: Enterprise Compliance + Trust Pack
+MODE: Proof-first, non-breaking, minimal diffs, no refactors.
+
+GOAL
+Add enterprise-grade compliance + trust features so deployments don’t get blocked and customers can prove “who did what, when” and manage access safely.
+
+HARD RULES
+1) Additive changes only. Do NOT refactor or break any existing steps (1–22).
+2) Every new endpoint: RBAC + tenant isolation + audit log.
+3) Exports must be safe (PII redaction where appropriate).
+4) Provide FULL raw proof pack before claiming complete.
+5) STOP after STEP 23 proof. Do NOT start STEP 24.
+
+========================================================
+23.1 AUDIT & EVIDENCE EXPORT (Backend + minimal UI)
+========================================================
+A) Prisma model (additive):
+- EvidenceExportJob
+  fields:
+  id (uuid), tenantId, requestedByUserId, type ("audit" | "support" | "incidents" | "access_review"),
+  format ("json" | "csv"),
+  status ("pending" | "ready" | "failed"),
+  fromDate, toDate,
+  filePath, fileSize, expiresAt,
+  createdAt, updatedAt,
+  errorMessage nullable
+
+B) API routes: apps/api/src/routes/evidence.ts
+Endpoints:
+1) POST /api/evidence/exports
+   body: { type, format, fromDate, toDate }
+   auth: owner/admin only
+   result: { exportJobId, status }
+2) GET /api/evidence/exports
+   auth: owner/admin only
+   list recent jobs
+3) GET /api/evidence/exports/:id
+   auth: owner/admin only
+   status details
+4) GET /api/evidence/exports/:id/download
+   auth: owner/admin only
+   returns file (application/json or text/csv)
+Security:
+- Always tenant-scope by x-tenant-id + membership.
+- Exports expire in 24 hours.
+- Rate limit export creation: 10/day/tenant.
+- Audit logs: EVIDENCE_EXPORT_REQUESTED, EVIDENCE_EXPORT_READY, EVIDENCE_EXPORT_DOWNLOADED, EVIDENCE_EXPORT_FAILED.
+
+C) Export content rules:
+- audit export: use existing AuditLog rows.
+- redact fields in metadata that may contain secrets using existing redact utility.
+- CSV columns: createdAt, actorUserId, actorRole, action, entityType, entityId, ip, userAgent, metadataJsonRedacted
+
+D) Background cleanup:
+- Add job cleanupEvidenceExports runs every 6 hours to delete expired export files and mark status as expired or remove jobs (choose simplest).
+- Wire into jobs scheduler.
+
+E) Minimal UI page:
+- /dashboard/evidence
+Features:
+- Create export form (type, format, date range)
+- List recent exports with status + Download button
+- Show expiry countdown and file size
+
+========================================================
+23.2 SECURITY & PRIVACY CENTER (Backend + minimal UI)
+========================================================
+A) Prisma model (additive):
+- TenantSecuritySettings
+  fields:
+  id, tenantId (unique),
+  dataRetentionDays (default 90),
+  piiRedactionEnabled (default true),
+  require2faForAdmins (flag only; do NOT implement full 2FA now),
+  createdAt, updatedAt
+
+B) API routes: apps/api/src/routes/securityCenter.ts
+Endpoints:
+1) GET /api/security/settings (owner/admin)
+2) POST /api/security/settings (owner/admin) body: { dataRetentionDays, piiRedactionEnabled, require2faForAdmins }
+3) GET /api/security/permissions-matrix (owner/admin) returns static matrix for roles owner/admin/staff/viewer and key capabilities
+
+Audit logs: SECURITY_SETTINGS_VIEWED, SECURITY_SETTINGS_UPDATED, PERMISSIONS_MATRIX_VIEWED
+Rate limit update: 30/hr tenant+user
+
+C) Minimal UI page:
+- /dashboard/security
+Features:
+- Data retention dropdown (30/90/180/365)
+- Toggle PII redaction
+- Toggle require2faForAdmins (UI only flag)
+- Permissions matrix table (read-only)
+
+========================================================
+23.3 LEGAL DOCS GENERATOR (Workspace-specific)
+========================================================
+A) API routes: apps/api/src/routes/legal.ts
+Endpoints:
+1) GET /api/legal/templates (public) list: terms, privacy, refunds
+2) POST /api/legal/generate (owner/admin)
+   body: { docType, companyName, country, supportEmail, billingModel, whiteLabel?: boolean }
+   returns { html, markdown }
+Rules:
+- Must include tenant branding if reseller/white-label mode detected (if existing helper exists).
+- No external calls required (use deterministic templates).
+- Store generated docs in DB for reuse (optional minimal model LegalDoc: id, tenantId, docType, html, markdown, createdAt)
+
+Audit logs: LEGAL_DOC_GENERATED, LEGAL_DOC_VIEWED
+
+B) Minimal UI page:
+- /dashboard/legal
+Features:
+- Form fields for required inputs
+- Generate button
+- Tabs for HTML/Markdown preview
+- Copy buttons
+
+========================================================
+23.4 SLA & INCIDENT REPORTING (Backend)
+========================================================
+A) API routes: apps/api/src/routes/reports.ts
+Endpoints:
+1) GET /api/reports/sla?from=&to=
+   owner/admin only
+   returns:
+   - ticket metrics: created, solved, avgFirstResponseMins, avgResolutionMins, slaBreaches
+   - incident metrics: count, avgTimeToResolveMins, criticalCount
+2) GET /api/reports/sla/export?from=&to=&format=csv|json
+   owner/admin only
+   returns export file directly OR creates EvidenceExportJob type="support"/"incidents" (choose simplest but must be consistent)
+
+Audit logs: SLA_REPORT_VIEWED, SLA_REPORT_EXPORTED
+
+========================================================
+23.5 ACCESS REVIEW (SOC2-style) (Backend + minimal UI)
+========================================================
+A) API routes: apps/api/src/routes/accessReview.ts
+Endpoints:
+1) GET /api/access-review/summary (owner/admin)
+   includes:
+   - usersCount
+   - dormantUsers (no login in 30 days if you track lastLogin; if not available, approximate with createdAt older than 30d and no activity)
+   - apiKeys: total, olderThan90d, rotatedRecently
+   - recommendations array
+2) POST /api/access-review/disable-user/:userId (owner/admin) -> disable membership or mark user disabled tenant-scope
+3) POST /api/access-review/revoke-api-key/:id (owner/admin) -> revoke key (use existing API key logic)
+4) POST /api/access-review/rotate-api-key/:id (owner/admin) -> call existing rotate endpoint internally or reuse function
+
+Audit logs: ACCESS_REVIEW_VIEWED, USER_DISABLED, API_KEY_REVOKED, API_KEY_ROTATED (reuse existing)
+Rate limit disable/revoke: 60/hr tenant+user
+
+B) Minimal UI page:
+- /dashboard/access-review
+Features:
+- Summary cards + recommendations list
+- Dormant users list + Disable button
+- API keys list + Revoke/Rotate buttons
+
+========================================================
+23.6 VERIFICATION + PROOF PACK (MANDATORY)
+========================================================
+Update scripts/verify.sh to include:
+- evidence export endpoints (create -> status -> download)
+- security settings endpoints
+- legal generate endpoint
+- sla report endpoint
+- access review summary
+
+Create reports/step23-proof.md with:
+A) Raw curl outputs:
+- Evidence export create/status/download (show headers Content-Type)
+- Security settings GET/POST
+- Permissions matrix GET
+- Legal generate POST (show short excerpt, not full doc)
+- SLA report GET
+- Access review summary GET
+- Disable user + revoke key + rotate key proofs
+B) RBAC proof:
+- staff token gets 403 on admin endpoints
+C) Cleanup job proof:
+- create export with short expiry (or manually set expiresAt) then run cleanup job and show it removed/marked
+D) Regression:
+- ./scripts/smoke.sh full output
+- ./scripts/verify.sh last ~40 lines
+E) Artifacts:
+- First 40 lines of reports/step23-proof.md
+- List changed files + git status
+
+DEFINITION OF DONE
+- All endpoints work with tenant isolation and RBAC
+- Evidence exports downloadable and expire
+- Access review actions work and audited
+- smoke.sh PASS
+- Proof pack complete
+
+STOP after Step 23 proof pack. Do NOT start Step 24.

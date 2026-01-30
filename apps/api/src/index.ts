@@ -77,6 +77,11 @@ import successRoutes from './routes/success.js';
 import growthRoutes from './routes/growth.js';
 import marketplaceRoutes from './routes/marketplace.js';
 import partnersRoutes from './routes/partners.js';
+import evidenceRoutes from './routes/evidence.js';
+import securityCenterRoutes from './routes/securityCenter.js';
+import legalRoutes from './routes/legal.js';
+import reportsRoutes from './routes/reports.js';
+import accessReviewRoutes from './routes/accessReview.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 import { startScheduler } from './jobs/index.js';
@@ -233,6 +238,11 @@ app.use('/api/success', apiLimiter, authMiddleware, tenantMiddleware, successRou
 app.use('/api/growth', apiLimiter, authMiddleware, tenantMiddleware, growthRoutes);
 app.use('/api/marketplace', apiLimiter, marketplaceRoutes);
 app.use('/api/partners', apiLimiter, authMiddleware, tenantMiddleware, partnersRoutes);
+app.use('/api/evidence', apiLimiter, authMiddleware, tenantMiddleware, evidenceRoutes);
+app.use('/api/security-center', apiLimiter, authMiddleware, tenantMiddleware, securityCenterRoutes);
+app.use('/api/legal', apiLimiter, authMiddleware, tenantMiddleware, legalRoutes);
+app.use('/api/reports', apiLimiter, authMiddleware, tenantMiddleware, reportsRoutes);
+app.use('/api/access-review', apiLimiter, authMiddleware, tenantMiddleware, accessReviewRoutes);
 
 // Error handler with human-friendly messages and safe logging
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

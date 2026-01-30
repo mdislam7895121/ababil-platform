@@ -35,6 +35,7 @@ import {
   Receipt,
   Building2,
   Store,
+  Shield,
 } from "lucide-react";
 import { useState } from "react";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -58,6 +59,7 @@ const navItems = [
   { href: "/dashboard/connectors", label: "Connectors", icon: Plug },
   { href: "/dashboard/audit", label: "Audit Logs", icon: FileText },
   { href: "/dashboard/ai", label: "AI Assistant", icon: Bot },
+  { href: "/dashboard/compliance", label: "Compliance", icon: Shield, roles: ["owner", "admin"] },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

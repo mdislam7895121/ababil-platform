@@ -46,6 +46,14 @@ The platform is a full-stack TypeScript monorepo.
   - **Restore**: Restore deleted workspaces within retention period.
   - **Cleanup Job**: Runs every 4 hours to expire old exports and delete files.
   - **UI**: `/dashboard/data` page for export, backup, delete, and restore operations.
+- **Enterprise Compliance + Trust Pack**: Complete compliance and security management system:
+  - **Security Center**: Data retention policies (30-365 days), PII redaction controls, 2FA enforcement for admins.
+  - **Permissions Matrix**: Visual RBAC breakdown for all 14 capabilities across 4 roles.
+  - **Access Review**: Dormant user detection (30+ days inactive), API key aging analysis (90+ days old), automated security recommendations.
+  - **Evidence Export**: Audit-ready exports (audit logs, support tickets, incidents, access reviews) in JSON/CSV with automatic PII redaction.
+  - **SLA Reports**: Support ticket metrics (created, solved, avg response, SLA breaches) and incident metrics.
+  - **Legal Document Generator**: Auto-generate Terms of Service, Privacy Policy, and Refund Policy based on company info.
+  - **UI**: `/dashboard/compliance` with 5-tab interface (Security, Access, Evidence, SLA, Legal).
 
 ## External Dependencies
 
