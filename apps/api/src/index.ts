@@ -74,6 +74,7 @@ import monitoringRoutes from './routes/monitoring.js';
 import supportRoutes from './routes/support.js';
 import pushRoutes from './routes/push.js';
 import successRoutes from './routes/success.js';
+import growthRoutes from './routes/growth.js';
 import { authMiddleware, tenantMiddleware } from './middleware/auth.js';
 import { humanizeError } from './lib/errors.js';
 import { startScheduler } from './jobs/index.js';
@@ -227,6 +228,7 @@ app.use('/api/tenants', apiLimiter, authMiddleware, tenantMiddleware, tenantsRou
 app.use('/api/support', apiLimiter, authMiddleware, tenantMiddleware, supportRoutes);
 app.use('/api/push', apiLimiter, authMiddleware, tenantMiddleware, pushRoutes);
 app.use('/api/success', apiLimiter, authMiddleware, tenantMiddleware, successRoutes);
+app.use('/api/growth', apiLimiter, authMiddleware, tenantMiddleware, growthRoutes);
 
 // Error handler with human-friendly messages and safe logging
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
