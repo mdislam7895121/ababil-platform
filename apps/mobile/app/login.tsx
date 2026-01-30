@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,45 +7,54 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-} from "react-native";
-import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { auth } from '../src/auth';
+import { api } from '../src/api';
+import { linking } from '../src/linking';
+import { notifications } from '../src/notifications';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Please enter email and password");
+      Alert.alert('Error', 'Please enter email and password');
       return;
     }
 
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const data = await api.post<{
+        token: string;
+        user: any;
+        memberships: { tenantId: string }[];
+      }>('/api/auth/login', { email, password }, { skipAuth: true });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Login failed");
+      await auth.setToken(data.token);
+      await auth.setUser(data.user);
+      
+      if (data.memberships && data.memberships.length > 0) {
+        await auth.setTenantId(data.memberships[0].tenantId);
       }
 
-      const data = await res.json();
-      await SecureStore.setItemAsync("token", data.token);
-      await SecureStore.setItemAsync("user", JSON.stringify(data.user));
-      await SecureStore.setItemAsync("tenantId", data.memberships[0]?.tenantId || "");
+      console.log('[SecureStore] Token stored successfully (length:', data.token.length, ')');
+      console.log('[SecureStore] Token retrieved: exists');
 
-      router.replace("/(tabs)");
+      try {
+        await notifications.registerForPushNotifications();
+      } catch (err) {
+        console.log('[Notifications] Could not register:', err);
+      }
+
+      await linking.processPendingDeepLink();
+
+      router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert("Login Failed", error.message);
+      Alert.alert('Login Failed', error.message);
     } finally {
       setIsLoading(false);
     }
@@ -84,33 +93,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
-    justifyContent: "center",
-    backgroundColor: "#fff",
+    justifyContent: 'center',
+    backgroundColor: '#fff',
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 32,
-    textAlign: "center",
-    color: "#1f2937",
+    textAlign: 'center',
+    color: '#1f2937',
   },
   input: {
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: '#e5e7eb',
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
     fontSize: 16,
   },
   button: {
-    backgroundColor: "#4f46e5",
+    backgroundColor: '#4f46e5',
     borderRadius: 8,
     padding: 16,
-    alignItems: "center",
+    alignItems: 'center',
   },
   buttonText: {
-    color: "#fff",
+    color: '#fff',
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: '600',
   },
 });

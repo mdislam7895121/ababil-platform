@@ -44,6 +44,7 @@ model Tenant {
   invoices         Invoice[]
   exportJobs       ExportJob[]
   backupSnapshots  BackupSnapshot[]
+  pushTokens       PushToken[]
 
   @@map("tenants")
 }
@@ -65,6 +66,7 @@ model User {
   approvedPayments ManualPayment[]
   ownedResellers   Reseller[]
   approvedPayouts  ResellerPayout[]
+  pushTokens       PushToken[]
 
   @@map("users")
 }
@@ -637,4 +639,21 @@ model SupportMessage {
 
   @@index([ticketId])
   @@map("support_messages")
+}
+
+model PushToken {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  tenantId   String   @map("tenant_id")
+  token      String
+  deviceInfo Json?    @map("device_info")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@map("push_tokens")
 }
