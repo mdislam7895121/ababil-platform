@@ -937,8 +937,9 @@ model MobileAppSpec {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  buildJobs MobileBuildJob[]
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  buildJobs   MobileBuildJob[]
+  publishJobs MobilePublishJob[]
 
   @@index([tenantId])
   @@index([status])
@@ -970,10 +971,15 @@ model MobileBuildJob {
 model MobilePublishJob {
   id          String    @id @default(uuid())
   tenantId    String    @map("tenant_id")
+  specId      String?   @map("spec_id") // Link to MobileSpec for build context
   target      String    // expo|flutter|flutterflow
   platform    String    // ios|android|both
+  stage       String    @default("build") // build|submit
+  provider    String    @default("local") // eas|flutter_local|flutter_ci|flutterflow
+  channel     String    @default("preview") // preview|production
   status      String    @default("queued") // queued|running|completed|failed|canceled
   logsPath    String?   @map("logs_path")
+  logs        String?   @db.Text // Store last N lines of logs in DB
   error       String?
   expiresAt   DateTime  @map("expires_at")
   startedAt   DateTime? @map("started_at")
@@ -982,9 +988,11 @@ model MobilePublishJob {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  spec      MobileAppSpec?          @relation(fields: [specId], references: [id], onDelete: SetNull)
   artifacts MobilePublishArtifact[]
 
   @@index([tenantId])
+  @@index([specId])
   @@index([status])
   @@index([expiresAt])
   @@map("mobile_publish_jobs")
@@ -1008,17 +1016,20 @@ model MobilePublishCredential {
 }
 
 model MobilePublishArtifact {
-  id        String   @id @default(uuid())
-  jobId     String   @map("job_id")
-  kind      String   // apk|aab|ipa|logs|metadata
+  id        String    @id @default(uuid())
+  jobId     String    @map("job_id")
+  kind      String    // apk|aab|ipa|eas_build_url|submit_receipt|logs|metadata|instructions|zip
   path      String?
   url       String?
   checksum  String?
   size      Int?
-  createdAt DateTime @default(now()) @map("created_at")
+  metadata  Json?     // Additional artifact-specific metadata
+  expiresAt DateTime? @map("expires_at") // 24h expiry for download links
+  createdAt DateTime  @default(now()) @map("created_at")
 
   job MobilePublishJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId])
+  @@index([expiresAt])
   @@map("mobile_publish_artifacts")
 }

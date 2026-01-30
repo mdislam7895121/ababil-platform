@@ -1752,7 +1752,7 @@ router.post('/publish/start', mobilePublishStartLimiter, requireRole('admin'), a
   try {
     const tenantId = req.tenantId!;
     const userId = req.userId!;
-    const { target, platform } = req.body;
+    const { target, platform, specId, stage = 'build', channel = 'preview' } = req.body;
 
     if (!target || !VALID_TARGETS.includes(target)) {
       res.status(400).json({ 
@@ -1770,6 +1770,24 @@ router.post('/publish/start', mobilePublishStartLimiter, requireRole('admin'), a
       return;
     }
 
+    const validStages = ['build', 'submit'];
+    if (!validStages.includes(stage)) {
+      res.status(400).json({
+        error: 'Invalid stage',
+        validStages
+      });
+      return;
+    }
+
+    const validChannels = ['preview', 'production'];
+    if (!validChannels.includes(channel)) {
+      res.status(400).json({
+        error: 'Invalid channel',
+        validChannels
+      });
+      return;
+    }
+
     // Check if required credentials are configured
     const credentials = await prisma.mobilePublishCredential.findMany({
       where: { tenantId },
@@ -1779,13 +1797,13 @@ router.post('/publish/start', mobilePublishStartLimiter, requireRole('admin'), a
 
     const requiredCreds: string[] = [];
     if (target === 'expo') {
+      requiredCreds.push('expo_token');
       if (platform === 'ios' || platform === 'both') requiredCreds.push('apple_api_key');
-      if (platform === 'android' || platform === 'both') requiredCreds.push('android_keystore');
     } else if (target === 'flutter' || target === 'flutterflow') {
       if (platform === 'ios' || platform === 'both') requiredCreds.push('apple_cert');
       if (platform === 'android' || platform === 'both') {
         requiredCreds.push('android_keystore');
-        requiredCreds.push('play_service_account');
+        if (stage === 'submit') requiredCreds.push('play_service_account');
       }
     }
 
@@ -1799,10 +1817,17 @@ router.post('/publish/start', mobilePublishStartLimiter, requireRole('admin'), a
       return;
     }
 
+    // Determine provider based on target
+    let provider = 'local';
+    if (target === 'expo') provider = 'eas';
+    else if (target === 'flutter') provider = 'flutter_local';
+    else if (target === 'flutterflow') provider = 'flutterflow';
+
     // Create logs file
-    const jobId = `pub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const logsPath = join(MOBILE_PUBLISH_LOGS_DIR, `${jobId}.log`);
-    writeFileSync(logsPath, `[${new Date().toISOString()}] Job ${jobId} created for ${target}/${platform}\n`);
+    const jobIdPrefix = `pub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const logsPath = join(MOBILE_PUBLISH_LOGS_DIR, `${jobIdPrefix}.log`);
+    const initialLog = `[${new Date().toISOString()}] Job ${jobIdPrefix} created for ${target}/${platform} (stage=${stage}, channel=${channel})\n`;
+    writeFileSync(logsPath, initialLog);
 
     // Create the publish job
     const expiresAt = new Date(Date.now() + PUBLISH_JOB_EXPIRY_HOURS * 60 * 60 * 1000);
@@ -1810,10 +1835,15 @@ router.post('/publish/start', mobilePublishStartLimiter, requireRole('admin'), a
     const job = await prisma.mobilePublishJob.create({
       data: {
         tenantId,
+        specId: specId || null,
         target,
         platform,
+        stage,
+        provider,
+        channel,
         status: 'queued',
         logsPath,
+        logs: initialLog,
         expiresAt
       }
     });
@@ -1821,51 +1851,37 @@ router.post('/publish/start', mobilePublishStartLimiter, requireRole('admin'), a
     await logAudit({
       tenantId,
       actorUserId: userId,
-      action: 'MOBILE_PUBLISH_JOB_STARTED',
+      action: 'MOBILE_PUBLISH_JOB_ENQUEUED',
       entityType: 'mobile_publish_job',
       entityId: job.id,
-      metadata: { target, platform }
+      metadata: { target, platform, stage, channel, provider }
     });
 
-    // Dummy runner: immediately mark as running then completed (for STEP 28)
-    // Real implementation will be in STEP 29-31
-    setTimeout(async () => {
-      try {
-        // Update to running
-        await prisma.mobilePublishJob.update({
-          where: { id: job.id },
-          data: { 
-            status: 'running',
-            startedAt: new Date()
-          }
-        });
-        
-        writeFileSync(logsPath, `[${new Date().toISOString()}] Job started - validating inputs...\n`, { flag: 'a' });
+    // If runner is enabled, it will pick up the job automatically
+    // Otherwise, use /run-now endpoint or the fallback inline runner
+    const runnerEnabled = process.env.MOBILE_PUBLISH_RUNNER_ENABLED === 'true';
+    
+    if (!runnerEnabled) {
+      // Fallback: run job inline (async) when runner is disabled
+      setTimeout(async () => {
+        try {
+          const { runJobNow } = await import('../jobs/mobilePublishRunner');
+          await runJobNow(job.id);
+        } catch (err: any) {
+          safeLog('error', '[MobilePublish] Inline runner error', { error: err.message });
+        }
+      }, 100);
+    }
 
-        // Simulate some processing time
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Mark as completed (dummy success)
-        await prisma.mobilePublishJob.update({
-          where: { id: job.id },
-          data: { 
-            status: 'completed',
-            completedAt: new Date()
-          }
-        });
-
-        writeFileSync(logsPath, `[${new Date().toISOString()}] Job completed successfully (dummy runner)\n`, { flag: 'a' });
-
-        safeLog('info', `[MobilePublish] Dummy job completed id=${job.id}`);
-      } catch (err: any) {
-        safeLog('error', '[MobilePublish] Dummy runner error', { error: err.message });
-      }
-    }, 100);
+    safeLog('info', `[MobilePublish] Job enqueued id=${job.id} target=${target} stage=${stage} runner=${runnerEnabled ? 'background' : 'inline'}`);
 
     res.json({
       id: job.id,
       target: job.target,
       platform: job.platform,
+      stage: job.stage,
+      provider: job.provider,
+      channel: job.channel,
       status: job.status,
       expiresAt: job.expiresAt,
       createdAt: job.createdAt
@@ -1901,12 +1917,18 @@ router.get('/publish/jobs', mobilePublishJobsListLimiter, requireRole('admin'), 
         id: j.id,
         target: j.target,
         platform: j.platform,
+        stage: j.stage,
+        provider: j.provider,
+        channel: j.channel,
         status: j.status,
         error: j.error,
         artifacts: j.artifacts.map(a => ({
           id: a.id,
           kind: a.kind,
-          size: a.size
+          path: a.path,
+          url: a.url,
+          size: a.size,
+          expiresAt: a.expiresAt
         })),
         startedAt: j.startedAt,
         completedAt: j.completedAt,
@@ -1948,13 +1970,22 @@ router.get('/publish/jobs/:id', mobilePublishJobsListLimiter, requireRole('admin
       logs = readFileSync(job.logsPath, 'utf-8');
     }
 
+    // Prefer DB logs, fallback to file
+    let logContent = job.logs || '';
+    if (!logContent && job.logsPath && existsSync(job.logsPath)) {
+      logContent = logs;
+    }
+
     res.json({
       id: job.id,
       target: job.target,
       platform: job.platform,
+      stage: job.stage,
+      provider: job.provider,
+      channel: job.channel,
       status: job.status,
       error: job.error,
-      logs,
+      logs: logContent,
       artifacts: job.artifacts.map(a => ({
         id: a.id,
         kind: a.kind,
@@ -1962,6 +1993,8 @@ router.get('/publish/jobs/:id', mobilePublishJobsListLimiter, requireRole('admin
         url: a.url,
         checksum: a.checksum,
         size: a.size,
+        metadata: a.metadata,
+        expiresAt: a.expiresAt,
         createdAt: a.createdAt
       })),
       startedAt: job.startedAt,
@@ -2027,6 +2060,91 @@ router.post('/publish/jobs/:id/cancel', mobilePublishJobsListLimiter, requireRol
   } catch (error: any) {
     safeLog('error', '[MobilePublish] Job cancel failed', { error: error.message });
     res.status(500).json({ error: 'Failed to cancel job' });
+  }
+});
+
+// GET /api/mobile/publish/jobs/:id/logs - Get job logs (admin only)
+router.get('/publish/jobs/:id/logs', mobilePublishJobsListLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const { id } = req.params;
+    const { lines = '200' } = req.query;
+
+    const job = await prisma.mobilePublishJob.findFirst({
+      where: { id, tenantId },
+      select: { id: true, logs: true, logsPath: true }
+    });
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    let logContent = job.logs || '';
+
+    // If logs stored in file, read from file
+    if (!logContent && job.logsPath && existsSync(job.logsPath)) {
+      logContent = readFileSync(job.logsPath, 'utf-8');
+    }
+
+    // Limit to last N lines
+    const maxLines = Math.min(parseInt(lines as string, 10) || 200, 500);
+    const logLines = logContent.split('\n');
+    const trimmedLogs = logLines.slice(-maxLines).join('\n');
+
+    res.json({
+      jobId: job.id,
+      lines: logLines.length,
+      logs: trimmedLogs
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Get logs failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to get logs' });
+  }
+});
+
+// POST /api/mobile/publish/jobs/:id/run-now - Trigger immediate job execution (admin only)
+router.post('/publish/jobs/:id/run-now', mobilePublishStartLimiter, requireRole('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const userId = req.userId!;
+    const { id } = req.params;
+
+    const job = await prisma.mobilePublishJob.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (job.status !== 'queued') {
+      return res.status(400).json({ 
+        error: 'Job is not in queued status',
+        currentStatus: job.status
+      });
+    }
+
+    // Import runner dynamically to avoid circular deps
+    const { runJobNow } = await import('../jobs/mobilePublishRunner');
+    const result = await runJobNow(id);
+
+    await logAudit({
+      tenantId,
+      actorUserId: userId,
+      action: 'MOBILE_PUBLISH_JOB_RUN_NOW',
+      entityType: 'mobile_publish_job',
+      entityId: id,
+      metadata: { result }
+    });
+
+    res.json({
+      jobId: id,
+      triggered: result.success,
+      message: result.message
+    });
+  } catch (error: any) {
+    safeLog('error', '[MobilePublish] Run-now failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to trigger job' });
   }
 });
 
