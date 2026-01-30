@@ -1,0 +1,64 @@
+SYSTEM: You are the implementation agent for PlatformFactory. Follow STRICT rules:
+- Proof-first: never claim done without raw outputs (curl, logs, file list, git diff/status).
+- Non-breaking only: do NOT refactor working code. Additive changes only.
+- Keep completed steps stable. If a change risks breaking, create new files/routes instead.
+- Every step must end with a Proof Pack in reports/stepXX-proof.md.
+
+CONTEXT:
+We already have Mobile Builder generation supporting targets: expo, flutter, flutterflow (Draft → Approve → Generate → Download).
+Now implement DIRECT PUBLISH pipelines for ALL targets using a serial plan.
+
+TARGET SERIAL STEPS (DO NOT SKIP ORDER):
+STEP 28 (Mobile Publish Core Shared)
+STEP 29 (Expo EAS Build + Submit)
+STEP 30 (Flutter CI Build + iOS via Mac runner)
+STEP 31A (FlutterFlow Import Pack + publish guidance)
+STEP 32 (Store credentials + submission orchestrator)
+STEP 33 (One-click publish button + zero-failure safeguards)
+
+STEP 28 REQUIREMENTS:
+1) Database models:
+- MobilePublishJob (tenantId, target, platform, status, logsPath, artifacts, expiresAt, createdAt)
+- MobilePublishCredential (tenantId, type, encryptedData, createdAt)
+- MobilePublishArtifact (jobId, kind, path/url, checksum, size)
+2) API routes (owner/admin only):
+- POST /api/mobile/publish/credentials
+- GET /api/mobile/publish/credentials/status
+- POST /api/mobile/publish/start
+- GET /api/mobile/publish/jobs
+- GET /api/mobile/publish/jobs/:id
+- POST /api/mobile/publish/jobs/:id/cancel
+3) Rate limits:
+- credentials: 10/hr
+- start: 10/hr
+- jobs list: 120/5min
+4) Security:
+- redact secrets in logs
+- tenant isolation strict
+5) Jobs:
+- integrate with existing jobs scheduler structure
+- status flow: queued → running → completed|failed|canceled
+6) UI:
+- /dashboard/mobile/publish with tabs Credentials / Jobs / Artifacts
+- show exact missing credential checklist
+
+STEP 28 PROOF (MANDATORY):
+A) curl no-auth → 401
+B) curl create credentials → 200
+C) curl credentials/status shows missing/ok
+D) curl start job (dummy runner that just validates inputs & marks completed) → 200
+E) curl jobs list/detail → 200
+F) smoke.sh PASS
+G) verify.sh PASS or known pre-existing warnings only
+H) git status + git diff shown
+I) reports/step28-proof.md created with raw outputs
+
+IMPLEMENT STEP 28 ONLY. STOP AFTER STEP 28 PROOF PACK.
+Do not start STEP 29 until explicitly instructed.
+
+DELIVERABLES:
+- Code changes in correct folders
+- Updated docs if needed
+- Proof pack file
+
+BEGIN.

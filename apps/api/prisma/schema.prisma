@@ -51,6 +51,8 @@ model Tenant {
   legalDocs          LegalDoc[]
   mobileAppSpecs     MobileAppSpec[]
   mobileBuildJobs    MobileBuildJob[]
+  mobilePublishJobs  MobilePublishJob[]
+  mobilePublishCredentials MobilePublishCredential[]
 
   @@map("tenants")
 }
@@ -963,4 +965,60 @@ model MobileBuildJob {
   @@index([specId])
   @@index([expiresAt])
   @@map("mobile_build_jobs")
+}
+
+model MobilePublishJob {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  target      String    // expo|flutter|flutterflow
+  platform    String    // ios|android|both
+  status      String    @default("queued") // queued|running|completed|failed|canceled
+  logsPath    String?   @map("logs_path")
+  error       String?
+  expiresAt   DateTime  @map("expires_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  artifacts MobilePublishArtifact[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("mobile_publish_jobs")
+}
+
+model MobilePublishCredential {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  type          String   // apple_api_key|apple_cert|android_keystore|play_service_account|expo_token
+  name          String   // user-friendly name
+  encryptedData String   @map("encrypted_data")
+  expiresAt     DateTime? @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type])
+  @@index([tenantId])
+  @@map("mobile_publish_credentials")
+}
+
+model MobilePublishArtifact {
+  id        String   @id @default(uuid())
+  jobId     String   @map("job_id")
+  kind      String   // apk|aab|ipa|logs|metadata
+  path      String?
+  url       String?
+  checksum  String?
+  size      Int?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  job MobilePublishJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@map("mobile_publish_artifacts")
 }
