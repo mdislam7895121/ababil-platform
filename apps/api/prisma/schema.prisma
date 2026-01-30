@@ -657,3 +657,75 @@ model PushToken {
   @@index([tenantId])
   @@map("push_tokens")
 }
+
+model Referral {
+  id              String    @id @default(uuid())
+  referrerTenant  String    @map("referrer_tenant")
+  referralCode    String    @unique @map("referral_code")
+  clicks          Int       @default(0)
+  signups         Int       @default(0)
+  conversions     Int       @default(0)
+  rewardsEarned   Int       @default(0) @map("rewards_earned")
+  rewardType      String    @default("credit") @map("reward_type")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([referrerTenant])
+  @@map("referrals")
+}
+
+model ReferralSignup {
+  id              String    @id @default(uuid())
+  referralId      String    @map("referral_id")
+  signedUpTenant  String    @map("signed_up_tenant")
+  convertedToPaid Boolean   @default(false) @map("converted_to_paid")
+  discountApplied Int       @default(0) @map("discount_applied")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([referralId])
+  @@index([signedUpTenant])
+  @@map("referral_signups")
+}
+
+model GrowthOffer {
+  id             String   @id @default(uuid())
+  name           String
+  description    String
+  discountPercent Int     @map("discount_percent")
+  eligiblePlans  String[] @map("eligible_plans")
+  expiresAt      DateTime @map("expires_at")
+  active         Boolean  @default(true)
+  redemptions    Int      @default(0)
+  maxRedemptions Int?     @map("max_redemptions")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@index([active])
+  @@index([expiresAt])
+  @@map("growth_offers")
+}
+
+model GrowthEvent {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  eventType  String   @map("event_type")
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("growth_events")
+}
+
+model NudgeDismissal {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  nudgeType  String   @map("nudge_type")
+  dismissedAt DateTime @default(now()) @map("dismissed_at")
+  cooldownUntil DateTime @map("cooldown_until")
+
+  @@unique([tenantId, nudgeType])
+  @@index([tenantId])
+  @@map("nudge_dismissals")
+}

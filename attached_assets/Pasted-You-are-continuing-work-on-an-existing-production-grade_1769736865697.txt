@@ -1,0 +1,158 @@
+You are continuing work on an existing production-grade platform:
+“Digital Platform Factory”.
+
+THIS IS STEP 20A — Growth + Revenue Acceleration.
+DO NOT modify or refactor any previous steps (STEP 1–19).
+Non-breaking changes only. Proof-first is mandatory.
+
+==================================================
+GOAL
+==================================================
+Increase customer acquisition, conversion to paid plans,
+and monthly revenue using in-app growth mechanics.
+
+The system must:
+- Nudge users at the RIGHT time
+- Never feel spammy
+- Be fully measurable and auditable
+
+==================================================
+SCOPE — WHAT TO BUILD (ALL REQUIRED)
+==================================================
+
+### 20.1 Referral System (In-App)
+Backend:
+- New endpoints:
+  POST /api/growth/referral/create
+  GET  /api/growth/referral/status
+- Each tenant gets a unique referral code/link
+- Track:
+  - invites sent
+  - signups completed
+  - conversions to paid
+- Reward logic:
+  - Referrer gets 1 free month OR credit
+  - Referred user gets discount
+
+Frontend:
+- New page: /dashboard/growth/referrals
+- Show:
+  - referral link
+  - stats (clicks, signups, paid)
+  - rewards earned
+
+==================================================
+
+### 20.2 Context-Aware Upgrade Nudges
+Backend:
+- New endpoint:
+  GET /api/growth/nudges
+- Based on:
+  - success path completion %
+  - blocked by payment
+  - feature usage limits reached
+- Return:
+  - nudgeType
+  - message
+  - ctaLabel
+  - targetRoute
+
+Frontend:
+- Show subtle nudge banners/cards ONLY when relevant
+- Never show more than 1 nudge at a time
+- Dismissable with cooldown (store last shown)
+
+==================================================
+
+### 20.3 Time-Limited Offers Engine
+Backend:
+- New endpoints:
+  POST /api/growth/offers (admin)
+  GET  /api/growth/offers/active
+- Offer rules:
+  - percentage discount
+  - expiresAt
+  - eligiblePlans[]
+- Enforce expiry strictly
+
+Frontend:
+- Countdown timer UI
+- “Offer expires in X hours” messaging
+- Auto-hide when expired
+
+==================================================
+
+### 20.4 Success-Based Upsells
+Backend:
+- New endpoint:
+  GET /api/growth/upsells
+- Trigger when:
+  - tenant reaches “live”
+  - first successful deploy
+  - first payment received
+- Examples:
+  - “Priority Support”
+  - “Managed Launch”
+  - “Custom Domain Setup”
+
+Frontend:
+- Show upsell card AFTER success moment
+- Clear value explanation
+- One-click purchase (or request)
+
+==================================================
+
+### 20.5 Growth Analytics
+Backend:
+- New endpoint:
+  GET /api/growth/analytics
+- Track:
+  - referral conversion rate
+  - nudge CTR
+  - offer redemption
+  - upsell acceptance
+- Store events in audit logs
+
+Frontend:
+- Admin-only dashboard:
+  /dashboard/growth/analytics
+- Simple charts + tables (no overengineering)
+
+==================================================
+SECURITY & RULES
+==================================================
+- RBAC enforced (owner/admin)
+- No dark patterns
+- No forced popups
+- Respect rate limits and cooldowns
+- Full audit logs for:
+  REFERRAL_CREATED
+  NUDGE_SHOWN
+  OFFER_REDEEMED
+  UPSELL_ACCEPTED
+
+==================================================
+PROOF REQUIREMENTS (MANDATORY)
+==================================================
+You MUST provide:
+
+1) Raw curl outputs for all new endpoints
+2) Screenshots:
+   - Referral dashboard
+   - Upgrade nudge visible
+   - Active offer with countdown
+3) Audit log entries for growth events
+4) smoke.sh → PASS
+5) verify.sh → PASS (warnings allowed if pre-existing)
+6) Create:
+   reports/step20-proof.md
+   with raw evidence
+
+==================================================
+STOP CONDITION
+==================================================
+- Do NOT start STEP 21
+- Stop after STEP 20A proof is complete
+- Wait for user confirmation
+
+BEGIN STEP 20A IMPLEMENTATION.
