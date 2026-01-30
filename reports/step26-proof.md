@@ -129,6 +129,15 @@ export const mobileGenerateLimiter = createRateLimiter({
   keyStrategy: 'tenantUser',
   routeName: 'mobile/generate'
 });
+
+// Key generator uses req.userId || req.user?.id for correct user identification
+const keyGenerators = {
+  tenantUser: (req) => {
+    const tenantId = req.headers['x-tenant-id'] || 'no-tenant';
+    const userId = req.userId || req.user?.id || 'no-user';
+    return `tenant:${tenantId}:user:${userId}`;
+  }
+};
 ```
 
 ### 6. Cleanup Job
@@ -306,13 +315,13 @@ Content-Disposition: attachment; filename="expo-app-84f9eeb3-4641-4532-84c7-cc00
 ## Conclusion
 
 STEP 26 is complete with all requirements implemented:
-- ✅ Prisma models for specs and build jobs
+- ✅ Prisma models for specs and build jobs with proper Tenant/Spec relations
 - ✅ Draft → Approve → Generate workflow
 - ✅ ZIP generation with complete Expo project
 - ✅ Deep linking support (preview/[token], invite/[token])
 - ✅ SecureStore authentication library
-- ✅ Rate limiting with tenantUser strategy
+- ✅ Rate limiting with tenantUser strategy (req.userId fallback for auth middleware compatibility)
 - ✅ RBAC enforcement (admin role required)
 - ✅ Audit logging for all actions
 - ✅ 24-hour build expiry with cleanup job
-- ✅ Web UI for the full workflow
+- ✅ Web UI for the full workflow with auth guard
