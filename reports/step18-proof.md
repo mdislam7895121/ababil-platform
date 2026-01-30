@@ -625,3 +625,76 @@ apps/api/src/routes/push.ts - Push notification API endpoints
 apps/api/prisma/schema.prisma - PushToken model
 apps/api/src/index.ts - Push routes registration
 ```
+
+## DEVICE PROOF SECTION
+
+### A) SECURESTORE PROOF
+| Test | Status | Evidence |
+|------|--------|----------|
+| Login persists after force-close | PENDING | Screenshot #1, #2 |
+| Console log shows Saved/Loaded | PENDING | Log snippet |
+
+**Screenshots Required:**
+- Screenshot #1: After login (authenticated screen)
+- Screenshot #2: After force-close + reopen (still authenticated)
+
+### B) DEEP LINK PROOF
+| Test | Status | Evidence |
+|------|--------|----------|
+| platformfactory://preview/abc123 opens app | PENDING | Screenshot #3 |
+| Preview screen shows token abc123 | PENDING | Screenshot #3 |
+
+**Screenshots Required:**
+- Screenshot #3: Preview screen opened from deep link
+
+### C) PUSH NOTIFICATION PROOF
+| Test | Status | Evidence |
+|------|--------|----------|
+| Real ExponentPushToken obtained | PENDING | Token value |
+| /api/push/register returns success | PENDING | curl output |
+| /api/push/test returns success (not DeviceNotRegistered) | PENDING | curl output |
+| iPhone shows notification banner | PENDING | Screenshot #4 |
+
+**Screenshots Required:**
+- Screenshot #4: iOS notification banner visible
+
+### CURL COMMANDS (COPY-PASTE READY)
+
+**Register Token:**
+```bash
+curl -s -X POST https://workspace.mdislam83.repl.co/api/push/register \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzMWU1MzQyMC0zNDkxLTRkNjAtYjU4Yi1jNmNlMjIyZTAxY2UiLCJpYXQiOjE3Njk3MzI4MjMsImV4cCI6MTc2OTgxOTIyM30.Mf-nRfq4gRM9jBNyR5c52P51eswVW0ew4DH-iNQsYD8" \
+  -H "x-tenant-id: d3cb7530-d631-4dd2-92ae-7de95df4586f" \
+  -H "Content-Type: application/json" \
+  -d '{"expoPushToken":"ExponentPushToken[YOUR_REAL_TOKEN_HERE]","deviceInfo":{"platform":"ios","modelName":"iPhone"}}'
+```
+
+**Send Test Push:**
+```bash
+curl -s -X POST https://workspace.mdislam83.repl.co/api/push/test \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIzMWU1MzQyMC0zNDkxLTRkNjAtYjU4Yi1jNmNlMjIyZTAxY2UiLCJpYXQiOjE3Njk3MzI4MjMsImV4cCI6MTc2OTgxOTIyM30.Mf-nRfq4gRM9jBNyR5c52P51eswVW0ew4DH-iNQsYD8" \
+  -H "x-tenant-id: d3cb7530-d631-4dd2-92ae-7de95df4586f" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"PlatformFactory Test","body":"Push OK"}'
+```
+
+### RAW OUTPUTS (TO BE FILLED)
+
+**Register Response:**
+```json
+PENDING
+```
+
+**Test Push Response:**
+```json
+PENDING
+```
+
+### PASS/FAIL CHECKLIST
+- [ ] A1: SecureStore persists login after force-close
+- [ ] B1: Deep link opens app to Preview screen
+- [ ] C1: Real ExponentPushToken obtained
+- [ ] C2: Register endpoint returns success
+- [ ] C3: Test push returns success (NOT DeviceNotRegistered)
+- [ ] C4: iPhone shows notification banner
+
