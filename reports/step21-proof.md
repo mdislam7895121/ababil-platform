@@ -193,17 +193,24 @@ Added 2 new tables to `apps/api/prisma/schema.prisma`:
 
 ## Security
 
-### Access Control
+### Access Control (RBAC-based)
 - Public: GET /items, GET /items/:slug (read-only)
-- Admin only: POST /items, POST /items/:id/publish
-- Owner/Admin: POST /install/:slug, POST /rollback/:installId
+- Admin/Owner role: POST /items, POST /items/:id/publish (RBAC membership check)
+- Owner/Admin role: POST /install/:slug, POST /rollback/:installId (RBAC membership check)
 
-### Rate Limiting
+### Transactional Operations
+- All install operations wrapped in `prisma.$transaction` for atomic rollback
+- All rollback operations wrapped in `prisma.$transaction` for atomic reversal
+- Audit logs created within same transaction for consistency
+
+### Rate Limiting (Tenant-scoped)
 - Install endpoint: 10 requests per minute
+- Key generator: `marketplace-install:{tenantId}:{userId}` for tenant-scoped limiting
 
 ### Tenant Isolation
 - Installs are tenant-scoped
 - Only tenant members can see their installs
+- Membership role verified for all protected operations
 
 ## Audit Events
 - MARKETPLACE_ITEM_PUBLISHED

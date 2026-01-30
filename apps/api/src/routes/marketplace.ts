@@ -33,8 +33,24 @@ async function logAudit(
 const installRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
+  keyGenerator: (req) => {
+    const authReq = req as AuthRequest;
+    const tenantId = authReq.headers['x-tenant-id'];
+    const userId = authReq.userId;
+    return `marketplace-install:${tenantId || 'anon'}:${userId || 'anon'}`;
+  },
   message: { error: 'Too many install requests, please try again later' }
 });
+
+async function checkAdminRole(userId: string): Promise<boolean> {
+  const membership = await prisma.membership.findFirst({
+    where: {
+      userId,
+      role: { in: ['admin', 'owner'] }
+    }
+  });
+  return !!membership;
+}
 
 router.get('/items', async (req: Request, res: Response) => {
   const typeParam = req.query.type;
@@ -136,9 +152,9 @@ router.post('/items', authMiddleware, async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || !user.email.endsWith('@admin.platform.io')) {
-    return res.status(403).json({ error: 'Admin access required' });
+  const isAdmin = await checkAdminRole(userId);
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Admin role required to create marketplace items' });
   }
 
   const {
@@ -204,9 +220,9 @@ router.post('/items/:id/publish', authMiddleware, async (req: Request, res: Resp
     return res.status(401).json({ error: 'Authentication required' });
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || !user.email.endsWith('@admin.platform.io')) {
-    return res.status(403).json({ error: 'Admin access required' });
+  const isAdmin = await checkAdminRole(userId);
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Admin role required to publish marketplace items' });
   }
 
   try {
@@ -236,11 +252,14 @@ router.post('/items/:id/publish', authMiddleware, async (req: Request, res: Resp
   }
 });
 
-async function executeInstallSpec(
+async function executeInstallSpecWithTransaction(
   tenantId: string,
   installSpec: Record<string, unknown>,
-  itemName: string
-): Promise<{ success: boolean; rollbackData: Record<string, unknown>; error?: string }> {
+  itemName: string,
+  itemId: string,
+  itemVersion: string,
+  userId: string
+): Promise<{ success: boolean; install?: Record<string, unknown>; rollbackData: Record<string, unknown>; error?: string }> {
   const rollbackData: Record<string, unknown> = {
     modulesEnabled: [],
     connectorsConfigured: [],
@@ -249,117 +268,167 @@ async function executeInstallSpec(
   };
 
   try {
-    const modules = installSpec.modules as string[] | undefined;
-    if (modules && Array.isArray(modules)) {
-      for (const moduleKey of modules) {
-        const existing = await prisma.moduleFlag.findFirst({
-          where: { tenantId, key: moduleKey }
-        });
-
-        if (!existing) {
-          await prisma.moduleFlag.create({
-            data: {
-              tenantId,
-              key: moduleKey,
-              enabled: true
-            }
+    const result = await prisma.$transaction(async (tx) => {
+      const modules = installSpec.modules as string[] | undefined;
+      if (modules && Array.isArray(modules)) {
+        for (const moduleKey of modules) {
+          const existing = await tx.moduleFlag.findFirst({
+            where: { tenantId, key: moduleKey }
           });
-          (rollbackData.modulesEnabled as string[]).push(moduleKey);
-        } else if (!existing.enabled) {
-          await prisma.moduleFlag.update({
-            where: { id: existing.id },
-            data: { enabled: true }
-          });
-          (rollbackData.modulesEnabled as string[]).push(moduleKey);
-        }
-      }
-    }
 
-    const connectors = installSpec.connectors as Array<{ name: string; config?: Record<string, unknown> }> | undefined;
-    if (connectors && Array.isArray(connectors)) {
-      for (const connector of connectors) {
-        const existing = await prisma.connectorConfig.findFirst({
-          where: { tenantId, connectorKey: connector.name }
-        });
-
-        if (!existing) {
-          await prisma.connectorConfig.create({
-            data: {
-              tenantId,
-              connectorKey: connector.name,
-              enabled: false,
-              configEncrypted: JSON.stringify(connector.config || {})
-            }
-          });
-          (rollbackData.connectorsConfigured as string[]).push(connector.name);
-        }
-      }
-    }
-
-    const presets = installSpec.presets as string[] | undefined;
-    if (presets && Array.isArray(presets)) {
-      const tenantData = await prisma.tenant.findUnique({
-        where: { id: tenantId },
-        select: { settings: true }
-      });
-
-      const currentSettings = (tenantData?.settings as Record<string, unknown>) || {};
-      const appliedPresets = (currentSettings.industryPresets as string[]) || [];
-      const newPresets = [...new Set([...appliedPresets, ...presets])];
-
-      await prisma.tenant.update({
-        where: { id: tenantId },
-        data: {
-          settings: {
-            ...currentSettings,
-            industryPresets: newPresets,
-            marketplaceInstall: itemName
+          if (!existing) {
+            await tx.moduleFlag.create({
+              data: {
+                tenantId,
+                key: moduleKey,
+                enabled: true
+              }
+            });
+            (rollbackData.modulesEnabled as string[]).push(moduleKey);
+          } else if (!existing.enabled) {
+            await tx.moduleFlag.update({
+              where: { id: existing.id },
+              data: { enabled: true }
+            });
+            (rollbackData.modulesEnabled as string[]).push(moduleKey);
           }
         }
-      });
-      (rollbackData.presetsApplied as string[]).push(...presets);
-    }
+      }
 
-    const sampleData = installSpec.sampleData as Record<string, unknown[]> | undefined;
-    if (sampleData) {
-      (rollbackData.sampleDataAdded as Record<string, unknown>[]).push({
-        note: 'Demo data flagged',
-        tables: Object.keys(sampleData)
-      });
-    }
+      const connectors = installSpec.connectors as Array<{ name: string; config?: Record<string, unknown> }> | undefined;
+      if (connectors && Array.isArray(connectors)) {
+        for (const connector of connectors) {
+          const existing = await tx.connectorConfig.findFirst({
+            where: { tenantId, connectorKey: connector.name }
+          });
 
-    return { success: true, rollbackData };
+          if (!existing) {
+            await tx.connectorConfig.create({
+              data: {
+                tenantId,
+                connectorKey: connector.name,
+                enabled: false,
+                configEncrypted: JSON.stringify(connector.config || {})
+              }
+            });
+            (rollbackData.connectorsConfigured as string[]).push(connector.name);
+          }
+        }
+      }
+
+      const presets = installSpec.presets as string[] | undefined;
+      if (presets && Array.isArray(presets)) {
+        const tenantData = await tx.tenant.findUnique({
+          where: { id: tenantId },
+          select: { settings: true }
+        });
+
+        const currentSettings = (tenantData?.settings as Record<string, unknown>) || {};
+        const appliedPresets = (currentSettings.industryPresets as string[]) || [];
+        const newPresets = [...new Set([...appliedPresets, ...presets])];
+
+        await tx.tenant.update({
+          where: { id: tenantId },
+          data: {
+            settings: {
+              ...currentSettings,
+              industryPresets: newPresets,
+              marketplaceInstall: itemName
+            }
+          }
+        });
+        (rollbackData.presetsApplied as string[]).push(...presets);
+      }
+
+      const sampleData = installSpec.sampleData as Record<string, unknown[]> | undefined;
+      if (sampleData) {
+        (rollbackData.sampleDataAdded as Record<string, unknown>[]).push({
+          note: 'Demo data flagged',
+          tables: Object.keys(sampleData)
+        });
+      }
+
+      const install = await tx.marketplaceInstall.create({
+        data: {
+          tenantId,
+          itemId,
+          installedVersion: itemVersion,
+          status: 'installed',
+          rollbackData: rollbackData as object
+        }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          actorUserId: userId,
+          action: 'MARKETPLACE_INSTALLED',
+          entityType: 'marketplace_install',
+          entityId: install.id,
+          metadata: { itemName, version: itemVersion }
+        }
+      });
+
+      return install;
+    });
+
+    return { success: true, install: result as unknown as Record<string, unknown>, rollbackData };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Unknown error';
     return { success: false, rollbackData, error };
   }
 }
 
-async function executeRollback(
+async function executeRollbackWithTransaction(
   tenantId: string,
-  rollbackData: Record<string, unknown>
-): Promise<{ success: boolean; error?: string }> {
+  rollbackData: Record<string, unknown>,
+  installId: string,
+  userId: string,
+  itemSlug: string,
+  itemName: string,
+  installedVersion: string
+): Promise<{ success: boolean; install?: Record<string, unknown>; error?: string }> {
   try {
-    const modulesEnabled = rollbackData.modulesEnabled as string[] | undefined;
-    if (modulesEnabled && Array.isArray(modulesEnabled)) {
-      for (const moduleKey of modulesEnabled) {
-        await prisma.moduleFlag.updateMany({
-          where: { tenantId, key: moduleKey },
-          data: { enabled: false }
-        });
+    const result = await prisma.$transaction(async (tx) => {
+      const modulesEnabled = rollbackData.modulesEnabled as string[] | undefined;
+      if (modulesEnabled && Array.isArray(modulesEnabled)) {
+        for (const moduleKey of modulesEnabled) {
+          await tx.moduleFlag.updateMany({
+            where: { tenantId, key: moduleKey },
+            data: { enabled: false }
+          });
+        }
       }
-    }
 
-    const connectorsConfigured = rollbackData.connectorsConfigured as string[] | undefined;
-    if (connectorsConfigured && Array.isArray(connectorsConfigured)) {
-      for (const connectorKey of connectorsConfigured) {
-        await prisma.connectorConfig.deleteMany({
-          where: { tenantId, connectorKey }
-        });
+      const connectorsConfigured = rollbackData.connectorsConfigured as string[] | undefined;
+      if (connectorsConfigured && Array.isArray(connectorsConfigured)) {
+        for (const connectorKey of connectorsConfigured) {
+          await tx.connectorConfig.deleteMany({
+            where: { tenantId, connectorKey }
+          });
+        }
       }
-    }
 
-    return { success: true };
+      const updatedInstall = await tx.marketplaceInstall.update({
+        where: { id: installId },
+        data: { status: 'rolled_back' }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          actorUserId: userId,
+          action: 'MARKETPLACE_ROLLED_BACK',
+          entityType: 'marketplace_install',
+          entityId: installId,
+          metadata: { itemSlug, itemName, version: installedVersion }
+        }
+      });
+
+      return updatedInstall;
+    });
+
+    return { success: true, install: result as unknown as Record<string, unknown> };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Unknown error';
     return { success: false, error };
@@ -440,11 +509,16 @@ router.post('/install/:slug', authMiddleware, installRateLimiter, async (req: Re
     }
 
     const installSpec = item.installSpec as Record<string, unknown>;
-    const { success, rollbackData, error } = await executeInstallSpec(tenantId, installSpec, item.name);
+    const { success, install, rollbackData, error } = await executeInstallSpecWithTransaction(
+      tenantId,
+      installSpec,
+      item.name,
+      item.id,
+      item.version,
+      userId
+    );
 
     if (!success) {
-      await executeRollback(tenantId, rollbackData);
-
       const failedInstall = await prisma.marketplaceInstall.create({
         data: {
           tenantId,
@@ -469,22 +543,6 @@ router.post('/install/:slug', authMiddleware, installRateLimiter, async (req: Re
         installId: failedInstall.id
       });
     }
-
-    const install = await prisma.marketplaceInstall.create({
-      data: {
-        tenantId,
-        itemId: item.id,
-        installedVersion: item.version,
-        status: 'installed',
-        rollbackData: rollbackData as object
-      }
-    });
-
-    await logAudit(tenantId, userId, 'MARKETPLACE_INSTALLED', 'marketplace_install', install.id, {
-      itemSlug: item.slug,
-      itemName: item.name,
-      version: item.version
-    });
 
     return res.json({
       install,
@@ -573,23 +631,23 @@ router.post('/rollback/:installId', authMiddleware, async (req: Request, res: Re
     }
 
     const rollbackData = install.rollbackData as Record<string, unknown> | null;
-    if (rollbackData) {
-      const { success, error } = await executeRollback(tenantId, rollbackData);
-      if (!success) {
-        return res.status(500).json({ error: `Rollback failed: ${error}` });
-      }
+    if (!rollbackData) {
+      return res.status(400).json({ error: 'No rollback data available' });
     }
 
-    const updatedInstall = await prisma.marketplaceInstall.update({
-      where: { id: installId },
-      data: { status: 'rolled_back' }
-    });
+    const { success, install: updatedInstall, error } = await executeRollbackWithTransaction(
+      tenantId,
+      rollbackData,
+      installId,
+      userId,
+      install.item.slug,
+      install.item.name,
+      install.installedVersion
+    );
 
-    await logAudit(tenantId, userId, 'MARKETPLACE_ROLLED_BACK', 'marketplace_install', installId, {
-      itemSlug: install.item.slug,
-      itemName: install.item.name,
-      version: install.installedVersion
-    });
+    if (!success) {
+      return res.status(500).json({ error: `Rollback failed: ${error}` });
+    }
 
     return res.json({
       install: updatedInstall,
