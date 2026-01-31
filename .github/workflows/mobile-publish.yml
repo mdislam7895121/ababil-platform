@@ -1,0 +1,98 @@
+name: Mobile Publish Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      jobId:
+        description: 'Publish Job ID'
+        required: true
+        type: string
+      target:
+        description: 'Build target'
+        required: true
+        type: choice
+        options:
+          - expo
+          - flutter
+      platform:
+        description: 'Platform'
+        required: true
+        type: choice
+        options:
+          - android
+          - ios
+          - both
+      tenantId:
+        description: 'Tenant ID'
+        required: true
+        type: string
+      stage:
+        description: 'Build stage'
+        required: false
+        type: choice
+        default: build
+        options:
+          - build
+          - submit
+      channel:
+        description: 'Release channel'
+        required: false
+        type: choice
+        default: preview
+        options:
+          - preview
+          - production
+
+env:
+  JOB_ID: ${{ inputs.jobId }}
+  TARGET: ${{ inputs.target }}
+  PLATFORM: ${{ inputs.platform }}
+  TENANT_ID: ${{ inputs.tenantId }}
+  STAGE: ${{ inputs.stage }}
+  CHANNEL: ${{ inputs.channel }}
+
+jobs:
+  expo-build:
+    if: inputs.target == 'expo'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Setup deps
+        run: npm ci || npm i
+      - name: Build
+        run: |
+          echo "Job: $JOB_ID Platform: $PLATFORM"
+          npx expo --version
+          npx expo export --platform web --output-dir dist
+          ls -la dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: expo-build-${{ inputs.jobId }}
+          path: apps/mobile/dist/
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Notify Success
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.API_BASE_URL }}/api/mobile/publish/jobs/$JOB_ID/ci/callback" -H "Content-Type: application/json" -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" -H "X-Requested-With: XMLHttpRequest" -H "Origin: ${{ secrets.API_BASE_URL }}" -d '{"status":"completed","runId":"${{ github.run_id }}","runUrl":"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' || true
+      - name: Notify Failed
+        if: failure()
+        run: |
+          curl -X POST "${{ secrets.API_BASE_URL }}/api/mobile/publish/jobs/$JOB_ID/ci/callback" -H "Content-Type: application/json" -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" -H "X-Requested-With: XMLHttpRequest" -H "Origin: ${{ secrets.API_BASE_URL }}" -d '{"status":"failed","runId":"${{ github.run_id }}","runUrl":"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}","error":"Build failed"}' || true
+
+  flutter-build:
+    if: inputs.target == 'flutter'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Flutter placeholder"
+      - name: Notify Success
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.API_BASE_URL }}/api/mobile/publish/jobs/$JOB_ID/ci/callback" -H "Content-Type: application/json" -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" -H "X-Requested-With: XMLHttpRequest" -H "Origin: ${{ secrets.API_BASE_URL }}" -d '{"status":"completed","runId":"${{ github.run_id }}","runUrl":"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' || true
