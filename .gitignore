@@ -1,0 +1,20 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+# Next.js build output
+apps/web/.next
+apps/web/.next/
+
+# Next.js build artifacts
+.next/
+apps/web/.next/
+
+# Local pasted prompt artifacts
+attached_assets/Pasted-*.txt
+.next
+*.tsbuildinfo
+out/
+# Local pasted prompt dumps

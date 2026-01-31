@@ -1,0 +1,44 @@
+{
+  "proof_timestamp": "2026-01-29T20:30:00Z",
+  "step": "STEP 10: Background Jobs + Queue",
+  "tests_passed": true,
+  "scheduler": {
+    "endpoint": "GET /api/jobs/status",
+    "result": {
+      "running": true,
+      "enabled": true,
+      "jobs": [
+        {"name": "cleanupPreviewSessions", "schedule": "0 */6 * * *"},
+        {"name": "cleanupI18nCache", "schedule": "0 3 * * *"}
+      ]
+    }
+  },
+  "manual_job_runs": [
+    {
+      "job": "cleanupPreviewSessions",
+      "trigger": "POST /api/jobs/run/cleanupPreviewSessions",
+      "result": {"success": true, "details": {"expiredCount": 0, "revokedCount": 0}}
+    },
+    {
+      "job": "cleanupI18nCache",
+      "trigger": "POST /api/jobs/run/cleanupI18nCache",
+      "result": {"success": true, "details": {"cleanedCount": 0}}
+    }
+  ],
+  "job_history": {
+    "endpoint": "GET /api/jobs/runs",
+    "runs_recorded": 2,
+    "sample": {
+      "name": "cleanupPreviewSessions",
+      "status": "success",
+      "startedAt": "2026-01-29T20:30:25.492Z",
+      "endedAt": "2026-01-29T20:30:25.533Z"
+    }
+  },
+  "error_handling": {
+    "unknown_job_test": "POST /api/jobs/run/unknownJob",
+    "expected_error": "Unknown job: unknownJob",
+    "result": "passed"
+  },
+  "env_var_control": "JOBS_ENABLED (defaults to true)"
+}
