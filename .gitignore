@@ -7,3 +7,14 @@ vite.config.ts.*
 # Next.js build output
 apps/web/.next
 apps/web/.next/
+
+# Next.js build artifacts
+.next/
+apps/web/.next/
+
+# Local pasted prompt artifacts
+attached_assets/Pasted-*.txt
+.next
+*.tsbuildinfo
+out/
+# Local pasted prompt dumps
