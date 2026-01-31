@@ -6,3 +6,4 @@ vite.config.ts.*
 *.tar.gz
 # Next.js build output
 apps/web/.next
+apps/web/.next/
