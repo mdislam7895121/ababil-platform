@@ -123,6 +123,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" \
             -H "X-Requested-With: XMLHttpRequest" \
+            -H "Origin: https://github.com" \
             -d '{
               "status": "completed",
               "runId": "${{ github.run_id }}",
@@ -137,6 +138,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" \
             -H "X-Requested-With: XMLHttpRequest" \
+            -H "Origin: https://github.com" \
             -d '{
               "status": "failed",
               "runId": "${{ github.run_id }}",
@@ -238,6 +240,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" \
             -H "X-Requested-With: XMLHttpRequest" \
+            -H "Origin: https://github.com" \
             -d '{
               "status": "completed",
               "runId": "${{ github.run_id }}",
@@ -252,6 +255,7 @@ jobs:
             -H "Content-Type: application/json" \
             -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" \
             -H "X-Requested-With: XMLHttpRequest" \
+            -H "Origin: https://github.com" \
             -d '{
               "status": "failed",
               "runId": "${{ github.run_id }}",
