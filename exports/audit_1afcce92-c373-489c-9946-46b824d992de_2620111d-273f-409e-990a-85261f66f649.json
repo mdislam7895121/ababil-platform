@@ -1,0 +1,225 @@
+[
+  {
+    "id": "d8516676-2711-4b4c-8c52-8943f88eb8bf",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "EVIDENCE_EXPORT_REQUESTED",
+    "entityType": "EvidenceExportJob",
+    "entityId": "2620111d-273f-409e-990a-85261f66f649",
+    "metadata": {
+      "type": "audit",
+      "format": "json"
+    },
+    "createdAt": "2026-01-30T18:32:17.996Z"
+  },
+  {
+    "id": "433803dd-db1a-48e5-a0fe-021b83493a11",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "SLA_REPORT_VIEWED",
+    "entityType": "SLAReport",
+    "entityId": "1afcce92-c373-489c-9946-46b824d992de",
+    "metadata": {},
+    "createdAt": "2026-01-30T18:32:14.649Z"
+  },
+  {
+    "id": "4d4c2bca-49df-446a-b063-f8e1e0fe3ee9",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "ACCESS_REVIEW_VIEWED",
+    "entityType": "AccessReview",
+    "entityId": "1afcce92-c373-489c-9946-46b824d992de",
+    "metadata": null,
+    "createdAt": "2026-01-30T18:32:13.004Z"
+  },
+  {
+    "id": "80a4efae-413f-422f-a89e-3fe12f0d4620",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "LEGAL_DOC_GENERATED",
+    "entityType": "LegalDoc",
+    "entityId": "terms",
+    "metadata": {
+      "docType": "terms",
+      "companyName": "ACME Corp"
+    },
+    "createdAt": "2026-01-30T18:32:11.139Z"
+  },
+  {
+    "id": "55a50966-47e0-4276-8c14-36d2d4582f60",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "PERMISSIONS_MATRIX_VIEWED",
+    "entityType": "PermissionsMatrix",
+    "entityId": "1afcce92-c373-489c-9946-46b824d992de",
+    "metadata": null,
+    "createdAt": "2026-01-30T18:32:07.346Z"
+  },
+  {
+    "id": "f6f509cd-c766-4bc0-b7e4-8e2f3325d5ca",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "SECURITY_SETTINGS_VIEWED",
+    "entityType": "TenantSecuritySettings",
+    "entityId": "80570bb4-fafb-4c14-98c5-38232423f204",
+    "metadata": null,
+    "createdAt": "2026-01-30T18:32:07.289Z"
+  },
+  {
+    "id": "1101744b-1639-490d-b7d8-08072b6913e1",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "PARTNER_APPROVED",
+    "entityType": "PartnerAccount",
+    "entityId": "b8afec01-7940-46de-a372-a9762437ba66",
+    "metadata": {
+      "previousStatus": "pending"
+    },
+    "createdAt": "2026-01-30T11:36:21.891Z"
+  },
+  {
+    "id": "3e3fc861-26c9-4370-8f54-ebf8e9ad5de3",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "PARTNER_APPLIED",
+    "entityType": "PartnerAccount",
+    "entityId": "b8afec01-7940-46de-a372-a9762437ba66",
+    "metadata": {
+      "displayName": "Test Partner Corp",
+      "contactEmail": "admin@admin.platform.io"
+    },
+    "createdAt": "2026-01-30T11:36:13.857Z"
+  },
+  {
+    "id": "79468eef-26d5-4949-aa90-204f3d154af3",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "MARKETPLACE_INSTALLED",
+    "entityType": "marketplace_install",
+    "entityId": "fbfb870e-58c3-44bb-976f-a87ddf365289",
+    "metadata": {
+      "version": "1.0.0",
+      "itemName": "CRM Lite Template"
+    },
+    "createdAt": "2026-01-30T08:27:02.931Z"
+  },
+  {
+    "id": "51e3128a-5a9d-44cd-aa1f-748e4f517f68",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "MARKETPLACE_ROLLED_BACK",
+    "entityType": "marketplace_install",
+    "entityId": "430f91f6-f191-49ee-be8e-e31e9ee6368c",
+    "metadata": {
+      "version": "1.0.0",
+      "itemName": "CRM Lite Template",
+      "itemSlug": "crm-lite"
+    },
+    "createdAt": "2026-01-30T08:27:02.792Z"
+  },
+  {
+    "id": "8b78bd37-1bfd-4fcf-bcdf-955fcdd7bb8a",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "MARKETPLACE_INSTALLED",
+    "entityType": "marketplace_install",
+    "entityId": "430f91f6-f191-49ee-be8e-e31e9ee6368c",
+    "metadata": {
+      "version": "1.0.0",
+      "itemName": "CRM Lite Template"
+    },
+    "createdAt": "2026-01-30T05:50:04.766Z"
+  },
+  {
+    "id": "fc8f7d6e-a15a-446f-aa49-6a095dde5d45",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "MARKETPLACE_ROLLED_BACK",
+    "entityType": "marketplace_install",
+    "entityId": "408b8d57-b973-4c94-a925-10a4b674b83d",
+    "metadata": {
+      "version": "1.0.0",
+      "itemName": "E-Commerce Starter Template",
+      "itemSlug": "ecommerce-starter"
+    },
+    "createdAt": "2026-01-30T05:49:53.138Z"
+  },
+  {
+    "id": "c39b3dd1-f217-4e3f-ad87-71e0f726f640",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "MARKETPLACE_INSTALLED",
+    "entityType": "marketplace_install",
+    "entityId": "408b8d57-b973-4c94-a925-10a4b674b83d",
+    "metadata": {
+      "version": "1.0.0",
+      "itemName": "E-Commerce Starter Template"
+    },
+    "createdAt": "2026-01-30T05:49:39.888Z"
+  },
+  {
+    "id": "d8d37a8b-72d5-425a-a697-1ed05d127935",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "MARKETPLACE_ROLLED_BACK",
+    "entityType": "marketplace_install",
+    "entityId": "3e951742-fb65-46e2-97b0-ca0ec97c74d0",
+    "metadata": {
+      "version": "1.0.0",
+      "itemName": "E-Commerce Starter Template",
+      "itemSlug": "ecommerce-starter"
+    },
+    "createdAt": "2026-01-30T04:02:09.014Z"
+  },
+  {
+    "id": "0984a731-f1c1-4f25-94a4-aaad485b6743",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "MARKETPLACE_INSTALLED",
+    "entityType": "marketplace_install",
+    "entityId": "3e951742-fb65-46e2-97b0-ca0ec97c74d0",
+    "metadata": {
+      "version": "1.0.0",
+      "itemName": "E-Commerce Starter Template"
+    },
+    "createdAt": "2026-01-30T04:02:08.934Z"
+  },
+  {
+    "id": "a81e44a7-7202-4cfc-9a30-e34595e576ae",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "MARKETPLACE_ROLLED_BACK",
+    "entityType": "marketplace_install",
+    "entityId": "6b29924f-c09b-44a8-a76d-f20d872cb062",
+    "metadata": {
+      "version": "1.0.0",
+      "itemName": "E-Commerce Starter Template",
+      "itemSlug": "ecommerce-starter"
+    },
+    "createdAt": "2026-01-30T03:53:56.235Z"
+  },
+  {
+    "id": "ba213442-384a-4333-b108-b9bd7b4b4a0a",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "MARKETPLACE_INSTALLED",
+    "entityType": "marketplace_install",
+    "entityId": "6b29924f-c09b-44a8-a76d-f20d872cb062",
+    "metadata": {
+      "version": "1.0.0",
+      "itemName": "E-Commerce Starter Template",
+      "itemSlug": "ecommerce-starter"
+    },
+    "createdAt": "2026-01-30T03:53:33.696Z"
+  },
+  {
+    "id": "e37c67bb-6a81-4382-98ca-e1234dc6ba8d",
+    "tenantId": "1afcce92-c373-489c-9946-46b824d992de",
+    "actorUserId": "4bd38790-d61b-485f-9cc5-d752011b949d",
+    "action": "create_tenant",
+    "entityType": "tenant",
+    "entityId": "1afcce92-c373-489c-9946-46b824d992de",
+    "metadata": null,
+    "createdAt": "2026-01-30T03:53:00.569Z"
+  }
+]
