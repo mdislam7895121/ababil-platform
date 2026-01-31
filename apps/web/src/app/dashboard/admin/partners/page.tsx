@@ -31,6 +31,8 @@ interface PartnerAccount {
   payoutPreferences: any;
   createdAt: string;
   updatedAt: string;
+  totalEarnings?: number;
+  pendingPayout?: number;
   _count?: {
     listings: number;
     earnings: number;
@@ -46,6 +48,7 @@ interface PartnerPayout {
   status: string;
   createdAt: string;
   processedAt: string | null;
+  requestedAt?: string;
   paymentDetails: any;
   partner?: {
     displayName: string;
@@ -510,7 +513,7 @@ export default function AdminPartnersPage() {
                             ${Number(payout.amount).toFixed(2)} {payout.currency}
                           </span>
                           <span className="text-muted-foreground">
-                            Requested: {new Date(payout.requestedAt).toLocaleDateString()}
+                            Requested: {new Date(payout.requestedAt || payout.createdAt).toLocaleDateString()}
                           </span>
                         </div>
                         <Badge variant="outline">{payout.status}</Badge>

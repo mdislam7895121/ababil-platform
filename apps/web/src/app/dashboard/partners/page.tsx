@@ -28,6 +28,7 @@ interface PartnerAccount {
   tenantId: string;
   status: 'pending' | 'approved' | 'suspended';
   displayName: string;
+  companyName?: string;
   contactEmail: string;
   country: string | null;
   payoutPreferences: any;
@@ -99,6 +100,7 @@ export default function DashboardPartnersPage() {
   const [applying, setApplying] = useState(false);
   const [showApplyDialog, setShowApplyDialog] = useState(false);
   const [showListingDialog, setShowListingDialog] = useState(false);
+  const [showPayoutDialog, setShowPayoutDialog] = useState(false);
 
   const [applyForm, setApplyForm] = useState({
     displayName: '',
@@ -111,6 +113,13 @@ export default function DashboardPartnersPage() {
     marketplaceItemId: '',
     commissionType: 'percent',
     commissionValue: 20
+  });
+
+  const [payoutForm, setPayoutForm] = useState({
+    amount: 0,
+    currency: 'USD',
+    paymentMethod: 'bank',
+    paymentDetails: '{}'
   });
 
   const [earningsTotals, setEarningsTotals] = useState<EarningsTotals>({
