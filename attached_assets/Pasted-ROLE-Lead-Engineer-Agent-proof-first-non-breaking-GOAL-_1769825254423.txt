@@ -1,0 +1,65 @@
+ROLE: Lead Engineer Agent (proof-first, non-breaking)
+
+GOAL
+Fix the Ababil CI so “Mobile Publish Build” runs green by adding a minimal Expo project structure to the GitHub repo and updating the workflow to build it. Keep the existing CI callback flow working (API → GitHub Actions → callback → API update).
+
+CONTEXT
+Repo: mdislam7895121/ababil-platform
+Workflow file exists: .github/workflows/mobile-publish.yml
+GitHub Secrets already used: API_BASE_URL, CI_CALLBACK_TOKEN
+Current runs fail because repo has no real mobile project (no apps/mobile, package.json, eas.json).
+
+STRICT RULES
+1) Do not claim “fixed” without proof.
+2) Make minimal diffs, additive changes only.
+3) No refactors. Only add what is required to make CI green.
+4) Do not expose or print secrets in logs.
+5) After changes, trigger a workflow run and provide run URL + logs proof.
+
+TASKS (DO IN ORDER)
+A) Inspect current repo contents
+- Show: git status, tree -a (or ls -R), and current .github/workflows/mobile-publish.yml content.
+
+B) Add minimal Expo app in apps/mobile (publish-ready skeleton)
+Create:
+- apps/mobile/package.json (expo + react-native minimal)
+- apps/mobile/app.json (or app.config.js)
+- apps/mobile/App.js (or app/index.js)
+- apps/mobile/babel.config.js
+- apps/mobile/.gitignore (optional)
+- apps/mobile/eas.json with minimal build profiles:
+  - "preview" profile with non-interactive safe defaults (no credentials required for “build” step in CI; do NOT attempt store submit yet)
+Also add repo root package.json only if needed (prefer keeping everything under apps/mobile).
+
+C) Update GitHub Actions workflow to actually build the Expo project
+- Ensure workflow runs inside apps/mobile.
+- Use actions/setup-node.
+- Install deps with npm ci (or npm install if lock not present).
+- Run “npx expo --version” and “npx expo-doctor” (optional).
+- Run “npx expo export” OR “npx expo prebuild --no-install” OR “npx expo start --non-interactive --help”:
+  Choose a CI-safe command that will pass without EXPO_TOKEN and without Apple/Google credentials.
+  Goal right now: make workflow green, and keep callbacks.
+
+IMPORTANT:
+- Keep the existing “Notify API - started” and “Notify API - completed” callback steps unchanged and working.
+
+D) Commit and push
+- Provide git diff.
+- Commit message: “Add minimal Expo mobile app for CI green”
+- Push to main.
+
+E) Proof
+- Trigger workflow_dispatch (target=expo, jobId dummy) and share:
+  1) GitHub Actions run URL
+  2) Screenshot/log snippets showing steps succeeded (install + build command)
+  3) Callback response evidence (API updated job status to completed/success OR at least callback received)
+
+DEFINITION OF DONE
+- Latest “Mobile Publish Build” run is GREEN.
+- Workflow shows it executed within apps/mobile and ran Expo command successfully.
+- Callback step executed and returned HTTP success (or clear proof in logs + API state).
+
+DELIVERABLES
+- List of files added with paths
+- git diff (relevant parts)
+- Actions run URL and proof snippets
