@@ -122,6 +122,7 @@ jobs:
           curl -X POST "${{ secrets.API_BASE_URL }}/api/mobile/publish/jobs/$JOB_ID/ci/callback" \
             -H "Content-Type: application/json" \
             -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" \
+            -H "X-Requested-With: XMLHttpRequest" \
             -d '{
               "status": "completed",
               "runId": "${{ github.run_id }}",
@@ -135,6 +136,7 @@ jobs:
           curl -X POST "${{ secrets.API_BASE_URL }}/api/mobile/publish/jobs/$JOB_ID/ci/callback" \
             -H "Content-Type: application/json" \
             -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" \
+            -H "X-Requested-With: XMLHttpRequest" \
             -d '{
               "status": "failed",
               "runId": "${{ github.run_id }}",
@@ -235,6 +237,7 @@ jobs:
           curl -X POST "${{ secrets.API_BASE_URL }}/api/mobile/publish/jobs/$JOB_ID/ci/callback" \
             -H "Content-Type: application/json" \
             -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" \
+            -H "X-Requested-With: XMLHttpRequest" \
             -d '{
               "status": "completed",
               "runId": "${{ github.run_id }}",
@@ -248,6 +251,7 @@ jobs:
           curl -X POST "${{ secrets.API_BASE_URL }}/api/mobile/publish/jobs/$JOB_ID/ci/callback" \
             -H "Content-Type: application/json" \
             -H "X-CI-Token: ${{ secrets.CI_CALLBACK_TOKEN }}" \
+            -H "X-Requested-With: XMLHttpRequest" \
             -d '{
               "status": "failed",
               "runId": "${{ github.run_id }}",
